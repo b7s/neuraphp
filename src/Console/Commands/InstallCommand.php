@@ -38,6 +38,7 @@ final class InstallCommand extends Command
         $this->addOption('skip-model', null, InputOption::VALUE_NONE, 'Skip model download');
         $this->addOption('force', null, InputOption::VALUE_NONE, 'Force re-download/re-compile even if files exist');
         $this->addOption('keep-source', null, InputOption::VALUE_NONE, 'Keep downloaded model source files after conversion');
+        $this->addOption('python-path', null, InputOption::VALUE_OPTIONAL, 'Path to Python executable (e.g. ~/myenv/bin/python3)', '');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -63,6 +64,9 @@ final class InstallCommand extends Command
         /** @var bool $keepSource */
         $keepSource = $input->getOption('keep-source');
 
+        /** @var string $pythonPath */
+        $pythonPath = $input->getOption('python-path');
+
         // Create a temp directory for all build/download operations
         $tempDir = $this->createTempDir();
 
@@ -80,7 +84,7 @@ final class InstallCommand extends Command
 
             // Step 2: Download and convert model
             if (! $skipModel) {
-                if (! $this->installModel($io, $model, $quantization, $force, $tempDir, $keepSource)) {
+                if (! $this->installModel($io, $model, $quantization, $force, $tempDir, $keepSource, $pythonPath)) {
                     $hasErrors = true;
                 }
             } else {
@@ -235,7 +239,7 @@ final class InstallCommand extends Command
         return true;
     }
 
-    private function installModel(SymfonyStyle $io, Model $model, Quantization $quantization, bool $force, string $tempDir, bool $keepSource): bool
+    private function installModel(SymfonyStyle $io, Model $model, Quantization $quantization, bool $force, string $tempDir, bool $keepSource, string $pythonPath): bool
     {
         $io->section('Step 2: Downloading model');
 
@@ -294,23 +298,22 @@ final class InstallCommand extends Command
         // Try to convert the model
         $io->text('Converting model to GGUF format...');
 
-        $converted = $this->convertModel($io, $sourceDir, $modelDir, $model, $quantization, $tempDir);
+        $converted = $this->convertModel($io, $sourceDir, $modelDir, $model, $quantization, $tempDir, $pythonPath);
 
         if (! $converted) {
             $io->warning('Automatic model conversion failed.');
             $io->text('This usually means Python or required packages are not installed.');
             $io->text('');
-            $io->text('<comment>Manual conversion steps:</comment>');
+            $io->text('<comment>Option 1: Use a virtualenv with --python-path</comment>');
+            $io->text('  python3 -m venv ~/myenv');
+            $io->text('  source ~/myenv/bin/activate');
+            $io->text('  pip install torch numpy transformers');
+            $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
             $io->text('');
+            $io->text('<comment>Option 2: Manual conversion</comment>');
             $io->text('  1. Install Python 3.8+ and pip');
-            $io->text('  2. Install requirements:');
-            $io->text('     pip install torch numpy transformers');
-            $io->text('  3. Convert the model:');
-            $io->text('     cd embedding.cpp/models');
-            $io->text('     python3 convert-to-ggml.py <model-dir>/ 0');
-            $io->text('     python3 convert-to-ggml.py <model-dir>/ 1');
-            $io->text('  4. Quantize (if needed):');
-            $io->text('     See embedding.cpp README for quantization commands');
+            $io->text('  2. Install requirements: pip install torch numpy transformers');
+            $io->text('  3. Convert the model using embedding.cpp/models/convert-to-ggml.py');
             $io->text('');
             $io->text('  Then copy the converted model file to:');
             $io->text("  {$modelFile}");
@@ -339,16 +342,24 @@ final class InstallCommand extends Command
         return true;
     }
 
-    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, Model $model, Quantization $quantization, string $tempDir): bool
+    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, Model $model, Quantization $quantization, string $tempDir, string $pythonPath): bool
     {
-        // Check if Python is available
-        $python = $this->findExecutable('python3') ?? $this->findExecutable('python');
+        // Find Python: explicit path > virtualenv search > system search
+        $python = $this->resolvePython($pythonPath);
 
         if ($python === null) {
             $io->text('Python not found. Cannot convert model automatically.');
+            $io->text('');
+            $io->text('<comment>Tip:</comment> Install Python in a virtualenv and use --python-path:');
+            $io->text('  python3 -m venv ~/myenv');
+            $io->text('  source ~/myenv/bin/activate');
+            $io->text('  pip install torch numpy transformers');
+            $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
 
             return false;
         }
+
+        $io->text("  ✓ python: {$python}");
 
         // Find the embedding.cpp source directory (in temp dir from library build)
         $embeddingCppDir = $tempDir.'/embedding-cpp';
@@ -376,10 +387,26 @@ final class InstallCommand extends Command
         );
 
         if ($packageCheck !== 0) {
-            $io->error('Required Python packages are missing.');
-            $io->note('Install them with: pip install torch numpy transformers');
+            // Try to auto-install dependencies if Python is in a virtualenv
+            if ($this->isVirtualenvPython($python)) {
+                $io->text('Python dependencies missing. Attempting to install into virtualenv...');
+                $installed = $this->installPythonDeps($io, $python, dirname($convertScript));
 
-            return false;
+                if (! $installed) {
+                    $io->error('Failed to install Python dependencies automatically.');
+
+                    return false;
+                }
+            } else {
+                $io->error('Required Python packages are missing and Python is not in a virtualenv.');
+                $io->note('Create a virtualenv and use --python-path:');
+                $io->text('  python3 -m venv ~/myenv');
+                $io->text('  source ~/myenv/bin/activate');
+                $io->text('  pip install torch numpy transformers');
+                $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
+
+                return false;
+            }
         }
 
         // Try to run conversion for f16 first (needed for quantization)
@@ -632,19 +659,52 @@ final class InstallCommand extends Command
 
     private function findExecutable(string $name): ?string
     {
-        $paths = [
+        // 1. Check common virtualenv locations (project-local and home)
+        $homeDir = is_string($_SERVER['HOME'] ?? null) ? $_SERVER['HOME'] : '';
+        $projectVenvs = [
+            getcwd().'/.venv/bin/'.$name,
+            getcwd().'/venv/bin/'.$name,
+            getcwd().'/env/bin/'.$name,
+        ];
+        $homeVenvs = [];
+
+        if ($homeDir !== '') {
+            $homeVenvs = [
+                $homeDir.'/.venv/bin/'.$name,
+                $homeDir.'/venv/bin/'.$name,
+                $homeDir.'/env/bin/'.$name,
+                $homeDir.'/myenv/bin/'.$name,
+            ];
+        }
+
+        // Also scan common virtualenv names in home directory
+        if ($homeDir !== '' && is_dir($homeDir)) {
+            $homeVenvs = array_merge($homeVenvs, $this->findVirtualenvBinaries($homeDir, $name));
+        }
+
+        $allPaths = array_merge($projectVenvs, $homeVenvs);
+
+        foreach ($allPaths as $path) {
+            $expanded = $this->expandTilde($path);
+            if (file_exists($expanded) && is_executable($expanded)) {
+                return $expanded;
+            }
+        }
+
+        // 2. Check standard system paths
+        $systemPaths = [
             '/usr/bin/'.$name,
             '/usr/local/bin/'.$name,
             '/opt/homebrew/bin/'.$name,
         ];
 
-        foreach ($paths as $path) {
+        foreach ($systemPaths as $path) {
             if (file_exists($path) && is_executable($path)) {
                 return $path;
             }
         }
 
-        // Try which command
+        // 3. Try which command
         $result = shell_exec("which {$name} 2>/dev/null");
 
         if (is_string($result) && trim($result) !== '') {
@@ -652,6 +712,163 @@ final class InstallCommand extends Command
         }
 
         return null;
+    }
+
+    /**
+     * Find Python binaries in virtualenv directories under the given base directory.
+     *
+     * @return list<string>
+     */
+    private function findVirtualenvBinaries(string $baseDir, string $name): array
+    {
+        $results = [];
+        $candidates = ['myenv', '.venv', 'venv', 'env', '.virtualenvs'];
+
+        foreach ($candidates as $candidate) {
+            $binPath = $baseDir.'/'.$candidate.'/bin/'.$name;
+            if (file_exists($binPath) && is_executable($binPath)) {
+                $results[] = $binPath;
+            }
+        }
+
+        // Also check ~/.virtualenvs/ directory (common pipenv/pyenv pattern)
+        $virtualenvsDir = $baseDir.'/.virtualenvs';
+        if (is_dir($virtualenvsDir)) {
+            $entries = scandir($virtualenvsDir);
+            if ($entries !== false) {
+                foreach ($entries as $entry) {
+                    if ($entry === '.' || $entry === '..') {
+                        continue;
+                    }
+                    $binPath = $virtualenvsDir.'/'.$entry.'/bin/'.$name;
+                    if (file_exists($binPath) && is_executable($binPath)) {
+                        $results[] = $binPath;
+                    }
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Resolve the Python executable path from explicit option, virtualenv search, or system search.
+     */
+    private function resolvePython(string $explicitPath): ?string
+    {
+        // 1. Explicit path provided via --python-path
+        if ($explicitPath !== '') {
+            $expanded = $this->expandTilde($explicitPath);
+
+            if (file_exists($expanded) && is_executable($expanded)) {
+                return $expanded;
+            }
+
+            // Not found — report clearly
+            return null;
+        }
+
+        // 2. Search virtualenvs and system paths
+        return $this->findExecutable('python3') ?? $this->findExecutable('python');
+    }
+
+    /**
+     * Check if a Python executable is inside a virtualenv.
+     */
+    private function isVirtualenvPython(string $pythonPath): bool
+    {
+        // Virtualenv Python binaries have a pyvenv.cfg in their parent directory
+        $binDir = dirname($pythonPath);
+        $venvRoot = dirname($binDir);
+
+        // Check for pyvenv.cfg (standard virtualenv marker)
+        if (file_exists($venvRoot.'/pyvenv.cfg')) {
+            return true;
+        }
+
+        // Check for conda-style environments
+        if (file_exists($venvRoot.'/conda-meta')) {
+            return true;
+        }
+
+        // Check if the Python path contains typical virtualenv directory names
+        $normalizedPath = str_replace('\\', '/', $pythonPath);
+
+        return str_contains($normalizedPath, '/.venv/') ||
+            str_contains($normalizedPath, '/venv/') ||
+            str_contains($normalizedPath, '/env/') ||
+            str_contains($normalizedPath, '/myenv/') ||
+            str_contains($normalizedPath, '/.virtualenvs/');
+    }
+
+    /**
+     * Attempt to install Python dependencies into a virtualenv.
+     */
+    private function installPythonDeps(SymfonyStyle $io, string $pythonPath, string $workingDir): bool
+    {
+        $io->text('Installing torch, numpy, transformers...');
+
+        // Find pip alongside the Python executable
+        $binDir = dirname($pythonPath);
+        $pipPath = $binDir.'/pip3';
+
+        if (! file_exists($pipPath) || ! is_executable($pipPath)) {
+            $pipPath = $binDir.'/pip';
+        }
+
+        if (! file_exists($pipPath) || ! is_executable($pipPath)) {
+            // Fall back to using the Python executable with -m pip
+            $io->text('pip not found alongside Python, using python -m pip...');
+
+            $result = $this->runCommand(
+                [$pythonPath, '-m', 'pip', 'install', 'torch', 'numpy', 'transformers'],
+                $workingDir,
+            );
+
+            if ($result !== 0) {
+                return false;
+            }
+        } else {
+            $result = $this->runCommand(
+                [$pipPath, 'install', 'torch', 'numpy', 'transformers'],
+                $workingDir,
+            );
+
+            if ($result !== 0) {
+                return false;
+            }
+        }
+
+        // Verify installation
+        $io->text('Verifying Python dependencies...');
+        $verifyResult = $this->runCommand(
+            [$pythonPath, '-c', 'import torch, numpy, transformers'],
+            $workingDir,
+        );
+
+        if ($verifyResult !== 0) {
+            $io->error('Dependency installation appeared to succeed but verification failed.');
+
+            return false;
+        }
+
+        $io->text('  ✓ Python dependencies installed successfully.');
+
+        return true;
+    }
+
+    /**
+     * Expand ~ to the user's home directory in a file path.
+     */
+    private function expandTilde(string $path): string
+    {
+        $homeDir = is_string($_SERVER['HOME'] ?? null) ? $_SERVER['HOME'] : '';
+
+        if ($homeDir !== '' && str_starts_with($path, '~/')) {
+            return $homeDir.'/'.substr($path, 2);
+        }
+
+        return $path;
     }
 
     /**

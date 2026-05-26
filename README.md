@@ -55,6 +55,27 @@ This will:
 
 # Keep downloaded model source files after conversion
 ./vendor/bin/neuraphp install --keep-source
+
+# Use a specific Python for model conversion (e.g. from a virtualenv)
+./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3
+```
+
+**Python & virtualenv:** Model conversion requires Python with `torch`, `numpy`, and `transformers`. The installer automatically:
+
+1. Searches for Python in project virtualenvs (`.venv/`, `venv/`, `env/`), home virtualenvs (`~/.venv/`, `~/myenv/`, `~/.virtualenvs/`), and system paths
+2. If Python is found in a virtualenv and packages are missing, **auto-installs** them into that virtualenv
+3. If Python is not in a virtualenv and packages are missing, shows clear instructions
+
+Use `--python-path` to point to a specific Python:
+
+```bash
+# Create a virtualenv with the required packages
+python3 -m venv ~/myenv
+source ~/myenv/bin/activate
+pip install torch numpy transformers
+
+# Then install with that Python
+./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3
 ```
 
 **Disk space note:** The installer downloads and compiles in a temp directory, then copies only the final artifacts to your project. Model source files (~900MB) and build artifacts are cleaned up automatically after conversion. Use `--keep-source` to preserve the original model files.
@@ -328,6 +349,9 @@ $similarity = Neuraphp::cosineSimilarity('cat', 'dog');
 
 # Keep model source files after conversion
 ./vendor/bin/neuraphp install --keep-source
+
+# Use a specific Python for model conversion
+./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3
 
 # Check if Neuraphp is properly configured
 ./vendor/bin/neuraphp doctor
