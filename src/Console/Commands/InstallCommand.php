@@ -6,9 +6,11 @@ namespace B7s\Neuraphp\Console\Commands;
 
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use SplFileInfo;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -636,12 +638,12 @@ final class InstallCommand extends Command
         }
 
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST,
         );
 
         foreach ($iterator as $file) {
-            if (! $file instanceof \SplFileInfo) {
+            if (! $file instanceof SplFileInfo) {
                 continue;
             }
 
