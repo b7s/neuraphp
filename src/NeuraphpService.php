@@ -8,6 +8,7 @@ use B7s\Neuraphp\Exceptions\FFIException;
 use B7s\Neuraphp\Exceptions\LibraryNotFoundException;
 use B7s\Neuraphp\Exceptions\ModelNotFoundException;
 use Exception;
+use FFI;
 use FFI\CData;
 use InvalidArgumentException;
 use Throwable;
@@ -27,7 +28,7 @@ final class NeuraphpService
     /** @var object|null FFI\CData for bert context */
     private ?object $context = null;
 
-    private ?\FFI $ffi = null;
+    private ?FFI $ffi = null;
 
     private readonly string $libraryPath;
 
@@ -101,7 +102,7 @@ final class NeuraphpService
         }
 
         try {
-            $ffi = \FFI::cdef(self::FFI_HEADER, $this->libraryPath);
+            $ffi = FFI::cdef(self::FFI_HEADER, $this->libraryPath);
             $this->ffi = $ffi;
 
             $context = $ffi->bert_load_from_file($this->modelPath);
@@ -209,7 +210,8 @@ final class NeuraphpService
         if ($this->initialized && $this->context !== null && $this->ffi !== null) {
             try {
                 $this->ffi->bert_free($this->context);
-            } catch (Throwable) {}
+            } catch (Throwable) {
+            }
         }
     }
 

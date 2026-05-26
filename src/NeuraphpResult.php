@@ -112,6 +112,7 @@ final readonly class NeuraphpResult
 
     /**
      * Convert to JSON string.
+     *
      * @throws JsonException
      */
     public function toJson(): string
