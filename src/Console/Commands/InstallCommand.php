@@ -161,7 +161,7 @@ final class InstallCommand extends Command
         $io->text('Compiling libbert_shared.so...');
         $buildPath = $sourceDir.'/build';
 
-        if (!is_dir($buildPath) && !mkdir($buildPath, 0755, true) && !is_dir($buildPath)) {
+        if (! is_dir($buildPath) && ! mkdir($buildPath, 0755, true) && ! is_dir($buildPath)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $buildPath));
         }
 
@@ -196,7 +196,7 @@ final class InstallCommand extends Command
         }
 
         // Copy to project lib directory
-        if (!is_dir($libDir) && !mkdir($libDir, 0755, true) && !is_dir($libDir)) {
+        if (! is_dir($libDir) && ! mkdir($libDir, 0755, true) && ! is_dir($libDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $libDir));
         }
 
