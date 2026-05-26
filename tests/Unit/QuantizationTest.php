@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+use B7s\Neuraphp\Enums\Quantization;
+
+describe('Quantization enum', function () {
+    it('has correct values', function () {
+        expect(Quantization::F32->value)->toBe('f32');
+        expect(Quantization::F16->value)->toBe('f16');
+        expect(Quantization::Q4_0->value)->toBe('q4_0');
+        expect(Quantization::Q4_1->value)->toBe('q4_1');
+    });
+
+    it('returns correct file suffixes', function () {
+        expect(Quantization::F32->fileSuffix())->toBe('f32');
+        expect(Quantization::F16->fileSuffix())->toBe('f16');
+        expect(Quantization::Q4_0->fileSuffix())->toBe('q4_0');
+        expect(Quantization::Q4_1->fileSuffix())->toBe('q4_1');
+    });
+
+    it('returns correct filenames', function () {
+        expect(Quantization::F32->filename())->toBe('ggml-model-f32.bin');
+        expect(Quantization::F16->filename())->toBe('ggml-model-f16.bin');
+        expect(Quantization::Q4_0->filename())->toBe('ggml-model-q4_0.bin');
+        expect(Quantization::Q4_1->filename())->toBe('ggml-model-q4_1.bin');
+    });
+
+    it('returns human-readable labels', function () {
+        expect(Quantization::F32->label())->toBe('Full precision (32-bit float)');
+        expect(Quantization::F16->label())->toBe('Half precision (16-bit float)');
+        expect(Quantization::Q4_0->label())->toBe('4-bit quantization (type 0)');
+        expect(Quantization::Q4_1->label())->toBe('4-bit quantization (type 1)');
+    });
+
+    it('can be created from string value', function () {
+        expect(Quantization::from('q4_0'))->toBe(Quantization::Q4_0);
+        expect(Quantization::from('f32'))->toBe(Quantization::F32);
+    });
+});

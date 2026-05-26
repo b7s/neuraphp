@@ -1,0 +1,16 @@
+parameters:
+    level: max
+    paths:
+        - src
+    excludePaths:
+        - src/Laravel/*
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # FFI is a PHP extension — its classes are only available at runtime
+        - '#Call to an undefined method FFI::#'
+        - '#Cannot call method .+ on FFI\|null#'
+        - '#Cannot cast mixed to int#'
+        - '#Cannot cast mixed to float#'
+        - '#expects FFI\\\\CData, mixed given#'
+        - '#Property .+ does not accept mixed#'

@@ -1,0 +1,13 @@
+/vendor/
+/node_modules/
+/.phpstan.cache/
+/.pest/
+/coverage/
+/.phpunit.result.cache/
+/phpunit.result.cache
+*.gguf
+*.bin
+*.so
+*.o
+.DS_Store
+Thumbs.db

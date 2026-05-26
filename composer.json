@@ -1,0 +1,60 @@
+{
+    "name": "b7s/neuraphp",
+    "description": "Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API calls, no external services at runtime.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["embedding", "bert", "ffi", "gguf", "nlp", "semantic-search", "similarity"],
+    "authors": [
+        {
+            "name": "B7s",
+            "email": "hello@b7s.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "ext-ffi": "*",
+        "symfony/console": "^7.0|^8.0"
+    },
+    "require-dev": {
+        "b7s/catraca": "^1.0",
+        "laravel/pint": "^1.29",
+        "pestphp/pest": "^4.3",
+        "phpstan/phpstan": "^2.0",
+        "systemsdk/phpcpd": "^8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "B7s\\Neuraphp\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "B7s\\Neuraphp\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/neuraphp"
+    ],
+    "scripts": {
+        "pint": "vendor/bin/pint --dirty",
+        "pint:all": "vendor/bin/pint",
+        "stan": "phpstan analyse src --level=max",
+        "test": "vendor/bin/pest --parallel",
+        "test:coverage": "vendor/bin/pest --parallel --coverage",
+        "catraca": "vendor/bin/catraca",
+        "check": [
+            "@pint",
+            "@stan",
+            "@test",
+            "@catraca"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
