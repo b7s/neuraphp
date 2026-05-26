@@ -6,6 +6,8 @@ namespace B7s\Neuraphp\Console\Commands;
 
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -35,6 +37,7 @@ final class InstallCommand extends Command
         $this->addOption('skip-library', null, InputOption::VALUE_NONE, 'Skip library compilation');
         $this->addOption('skip-model', null, InputOption::VALUE_NONE, 'Skip model download');
         $this->addOption('force', null, InputOption::VALUE_NONE, 'Force re-download/re-compile even if files exist');
+        $this->addOption('keep-source', null, InputOption::VALUE_NONE, 'Keep downloaded model source files after conversion');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -57,24 +60,35 @@ final class InstallCommand extends Command
         /** @var bool $force */
         $force = $input->getOption('force');
 
+        /** @var bool $keepSource */
+        $keepSource = $input->getOption('keep-source');
+
+        // Create a temp directory for all build/download operations
+        $tempDir = $this->createTempDir();
+
         $hasErrors = false;
 
-        // Step 1: Install library
-        if (! $skipLibrary) {
-            if (! $this->installLibrary($io, $force)) {
-                $hasErrors = true;
+        try {
+            // Step 1: Install library
+            if (! $skipLibrary) {
+                if (! $this->installLibrary($io, $force, $tempDir)) {
+                    $hasErrors = true;
+                }
+            } else {
+                $io->note('Skipping library installation (--skip-library).');
             }
-        } else {
-            $io->note('Skipping library installation (--skip-library).');
-        }
 
-        // Step 2: Download and convert model
-        if (! $skipModel) {
-            if (! $this->installModel($io, $model, $quantization, $force)) {
-                $hasErrors = true;
+            // Step 2: Download and convert model
+            if (! $skipModel) {
+                if (! $this->installModel($io, $model, $quantization, $force, $tempDir, $keepSource)) {
+                    $hasErrors = true;
+                }
+            } else {
+                $io->note('Skipping model installation (--skip-model).');
             }
-        } else {
-            $io->note('Skipping model installation (--skip-model).');
+        } finally {
+            // Always clean up the temp directory
+            $this->removeDir($tempDir);
         }
 
         // Summary
@@ -91,7 +105,7 @@ final class InstallCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function installLibrary(SymfonyStyle $io, bool $force): bool
+    private function installLibrary(SymfonyStyle $io, bool $force, string $tempDir): bool
     {
         $io->section('Step 1: Installing embedding.cpp library');
 
@@ -144,28 +158,27 @@ final class InstallCommand extends Command
         $io->text("  ✓ make: {$make}");
         $io->text("  ✓ cargo: {$cargo}");
 
-        // Clone embedding.cpp
-        $buildDir = $this->projectRoot.'/build/embedding-cpp';
-        $sourceDir = $buildDir.'/source';
+        // Clone embedding.cpp into temp directory
+        $sourceDir = $tempDir.'/embedding-cpp';
 
-        if (! is_dir($sourceDir)) {
-            $io->text('Cloning embedding.cpp repository...');
-            $cloneResult = $this->runCommand(
-                ['git', 'clone', '--depth', '1', '--recurse-submodules', 'https://github.com/FFengIll/embedding.cpp', $sourceDir],
-                $this->projectRoot,
-            );
+        $io->text('Cloning embedding.cpp repository...');
+        $cloneResult = $this->runCommand(
+            ['git', 'clone', '--depth', '1', '--recurse-submodules', 'https://github.com/FFengIll/embedding.cpp', $sourceDir],
+            $tempDir,
+        );
 
-            if ($cloneResult !== 0) {
-                $io->error('Failed to clone embedding.cpp. Check your internet connection and try again.');
-                $io->note('Manual alternative: git clone https://github.com/FFengIll/embedding.cpp');
+        if ($cloneResult !== 0) {
+            $io->error('Failed to clone embedding.cpp. Check your internet connection and try again.');
+            $io->note('Manual alternative: git clone https://github.com/FFengIll/embedding.cpp');
 
-                return false;
-            }
-        } else {
-            $io->text('Repository already cloned. Updating...');
-            $this->runCommand(['git', 'pull'], $sourceDir);
-            $this->runCommand(['git', 'submodule', 'update', '--init', '--recursive'], $sourceDir);
+            return false;
         }
+
+        // Patch Rust source to fix implicit autoref on dereferenced raw pointers
+        $this->patchRustSource($sourceDir.'/tokenizers-cpp/rust/src/lib.rs');
+
+        // Patch C++ source to add missing includes
+        $this->patchCppSource($sourceDir.'/bert.cpp');
 
         // Build libbert_shared.so
         $io->text('Compiling libbert_shared.so...');
@@ -176,7 +189,7 @@ final class InstallCommand extends Command
         }
 
         $cmakeResult = $this->runCommand(
-            ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON'],
+            ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON'],
             $buildPath,
         );
 
@@ -222,7 +235,7 @@ final class InstallCommand extends Command
         return true;
     }
 
-    private function installModel(SymfonyStyle $io, Model $model, Quantization $quantization, bool $force): bool
+    private function installModel(SymfonyStyle $io, Model $model, Quantization $quantization, bool $force, string $tempDir, bool $keepSource): bool
     {
         $io->section('Step 2: Downloading model');
 
@@ -258,35 +271,30 @@ final class InstallCommand extends Command
         $io->text("  ✓ git: {$git}");
         $io->text("  ✓ git-lfs: {$gitLfs}");
 
-        // Download model from HuggingFace
+        // Download model from HuggingFace into temp directory
         $huggingFaceUrl = "https://huggingface.co/sentence-transformers/{$model->directoryName()}";
-        $sourceDir = $modelDir.'/source';
+        $sourceDir = $tempDir.'/'.$model->directoryName();
 
-        if (! is_dir($sourceDir)) {
-            $io->text("Downloading model from HuggingFace: {$model->directoryName()}...");
-            $io->note('This may take a while depending on the model size.');
+        $io->text("Downloading model from HuggingFace: {$model->directoryName()}...");
+        $io->note('This may take a while depending on the model size.');
 
-            $cloneResult = $this->runCommand(
-                ['git', 'clone', '--depth', '1', $huggingFaceUrl, $sourceDir],
-                $this->projectRoot,
-            );
+        $cloneResult = $this->runCommand(
+            ['git', 'clone', '--depth', '1', $huggingFaceUrl, $sourceDir],
+            $tempDir,
+        );
 
-            if ($cloneResult !== 0) {
-                $io->error("Failed to download model '{$model->value}' from HuggingFace.");
-                $io->note("The model may not exist at: {$huggingFaceUrl}");
-                $io->note('Check the model name and try again, or download manually.');
+        if ($cloneResult !== 0) {
+            $io->error("Failed to download model '{$model->value}' from HuggingFace.");
+            $io->note("The model may not exist at: {$huggingFaceUrl}");
+            $io->note('Check the model name and try again, or download manually.');
 
-                return false;
-            }
-        } else {
-            $io->text('Model source already downloaded. Updating...');
-            $this->runCommand(['git', 'pull'], $sourceDir);
+            return false;
         }
 
         // Try to convert the model
         $io->text('Converting model to GGUF format...');
 
-        $converted = $this->convertModel($io, $sourceDir, $modelDir, $model, $quantization);
+        $converted = $this->convertModel($io, $sourceDir, $modelDir, $model, $quantization, $tempDir);
 
         if (! $converted) {
             $io->warning('Automatic model conversion failed.');
@@ -298,9 +306,9 @@ final class InstallCommand extends Command
             $io->text('  2. Install requirements:');
             $io->text('     pip install torch numpy transformers');
             $io->text('  3. Convert the model:');
-            $io->text("     cd {$sourceDir}/../../embedding-cpp-source/models");
-            $io->text("     python3 convert-to-ggml.py {$model->directoryName()}/source/ 0");
-            $io->text("     python3 convert-to-ggml.py {$model->directoryName()}/source/ 1");
+            $io->text('     cd embedding.cpp/models');
+            $io->text('     python3 convert-to-ggml.py <model-dir>/ 0');
+            $io->text('     python3 convert-to-ggml.py <model-dir>/ 1');
             $io->text('  4. Quantize (if needed):');
             $io->text('     See embedding.cpp README for quantization commands');
             $io->text('');
@@ -310,19 +318,28 @@ final class InstallCommand extends Command
             return false;
         }
 
-        if (file_exists($modelFile)) {
-            $io->success("Model installed at: {$modelFile}");
-        } else {
+        if (! file_exists($modelFile)) {
             $io->warning("Model conversion completed but expected file not found at: {$modelFile}");
             $io->text('Check the models directory for available files.');
 
             return false;
         }
 
+        $io->success("Model installed at: {$modelFile}");
+
+        // Clean up intermediate files to free disk space
+        if (! $keepSource) {
+            $this->removeDir($sourceDir);
+            $io->text('Cleaned up model source files to free disk space.');
+        }
+
+        $this->removeDir($tempDir.'/embedding-cpp/build');
+        $io->text('Cleaned up build artifacts to free disk space.');
+
         return true;
     }
 
-    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, Model $model, Quantization $quantization): bool
+    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, Model $model, Quantization $quantization, string $tempDir): bool
     {
         // Check if Python is available
         $python = $this->findExecutable('python3') ?? $this->findExecutable('python');
@@ -333,11 +350,12 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Find the embedding.cpp source directory
-        $embeddingCppDir = $this->projectRoot.'/build/embedding-cpp/source';
+        // Find the embedding.cpp source directory (in temp dir from library build)
+        $embeddingCppDir = $tempDir.'/embedding-cpp';
 
         if (! is_dir($embeddingCppDir)) {
             $io->text('embedding.cpp source not found. Cannot convert model.');
+            $io->note('Run the library installation step first.');
 
             return false;
         }
@@ -424,8 +442,92 @@ final class InstallCommand extends Command
         return file_exists($modelDir.'/'.$model->filename($quantization));
     }
 
+    /**
+     * Patch the tokenizers-cpp Rust source to fix implicit autoref on dereferenced raw pointers.
+     *
+     * Rust 2024 edition makes implicit autorefs on dereferenced raw pointers a hard error.
+     * This method applies the fix: `(*handle).field.method()` → `(&(*handle).field).method()`
+     * and `(*handle).field.as_mut_ptr()` → `(&mut (*handle).field).as_mut_ptr()`.
+     */
+    private function patchRustSource(string $filePath): void
+    {
+        if (! file_exists($filePath)) {
+            return;
+        }
+
+        $content = file_get_contents($filePath);
+
+        if ($content === false) {
+            return;
+        }
+
+        // Fix implicit autoref on .len() calls (shared reference)
+        // (*handle).encode_ids.len() → (&(*handle).encode_ids).len()
+        // (*handle).decode_str.len() → (& (*handle).decode_str).len()
+        $content = preg_replace(
+            '/\(\*handle\)\.(\w+)\.len\(\)/',
+            '(&(*handle).$1).len()',
+            $content,
+        );
+
+        // Fix implicit autoref on .as_mut_ptr() calls (mutable reference)
+        // (*handle).encode_ids.as_mut_ptr() → (&mut (*handle).encode_ids).as_mut_ptr()
+        // (*handle).decode_str.as_mut_ptr() → (&mut (*handle).decode_str).as_mut_ptr()
+        $content = preg_replace(
+            '/\(\*handle\)\.(\w+)\.as_mut_ptr\(\)/',
+            '(&mut (*handle).$1).as_mut_ptr()',
+            $content,
+        );
+
+        file_put_contents($filePath, $content);
+    }
+
+    /**
+     * Patch bert.cpp to add missing C++ standard library includes.
+     *
+     * The embedding.cpp repo is missing #include <unordered_map>, <array>, and <mutex>
+     * which causes compilation errors with modern GCC.
+     */
+    private function patchCppSource(string $filePath): void
+    {
+        if (! file_exists($filePath)) {
+            return;
+        }
+
+        $content = file_get_contents($filePath);
+
+        if ($content === false) {
+            return;
+        }
+
+        $missingIncludes = [
+            '#include <unordered_map>',
+            '#include <array>',
+            '#include <mutex>',
+        ];
+
+        $insertAfter = '#include "tokenizer.h"';
+        $patch = '';
+
+        foreach ($missingIncludes as $include) {
+            if (! str_contains($content, $include)) {
+                $patch .= $include."\n";
+            }
+        }
+
+        if ($patch !== '') {
+            $content = str_replace($insertAfter, $insertAfter."\n".$patch, $content);
+        }
+
+        file_put_contents($filePath, $content);
+    }
+
     private function copyConvertedFiles(string $sourceDir, string $modelDir): void
     {
+        if (! is_dir($modelDir) && ! mkdir($modelDir, 0755, true) && ! is_dir($modelDir)) {
+            throw new RuntimeException(sprintf('Directory "%s" was not created', $modelDir));
+        }
+
         $patterns = ['ggml-model-*.bin'];
 
         foreach ($patterns as $pattern) {
@@ -487,6 +589,39 @@ final class InstallCommand extends Command
         }
 
         return null;
+    }
+
+    private function createTempDir(): string
+    {
+        $tempDir = sys_get_temp_dir().'/neuraphp-build-'.str_replace('.', '_', uniqid('', true));
+
+        if (! mkdir($tempDir, 0755, true) && ! is_dir($tempDir)) {
+            throw new RuntimeException("Failed to create temp directory: {$tempDir}");
+        }
+
+        return $tempDir;
+    }
+
+    private function removeDir(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isDir()) {
+                rmdir($file->getPathname());
+            } else {
+                unlink($file->getPathname());
+            }
+        }
+
+        rmdir($dir);
     }
 
     private function findExecutable(string $name): ?string

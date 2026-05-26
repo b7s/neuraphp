@@ -52,7 +52,12 @@ This will:
 
 # Force re-download/re-compile
 ./vendor/bin/neuraphp install --force
+
+# Keep downloaded model source files after conversion
+./vendor/bin/neuraphp install --keep-source
 ```
+
+**Disk space note:** The installer downloads and compiles in a temp directory, then copies only the final artifacts to your project. Model source files (~900MB) and build artifacts are cleaned up automatically after conversion. Use `--keep-source` to preserve the original model files.
 
 **If automatic model conversion fails** (e.g., Python not available), the command will show clear manual instructions. The library compilation step does not require Python.
 
@@ -320,6 +325,9 @@ $similarity = Neuraphp::cosineSimilarity('cat', 'dog');
 
 # Force re-download/re-compile
 ./vendor/bin/neuraphp install --force
+
+# Keep model source files after conversion
+./vendor/bin/neuraphp install --keep-source
 
 # Check if Neuraphp is properly configured
 ./vendor/bin/neuraphp doctor
