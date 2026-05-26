@@ -32,7 +32,7 @@ Run the installation command - it clones, compiles, and downloads everything for
 ```
 
 This will:
-1. **Check prerequisites** (git, cmake, make, C++ compiler)
+1. **Check prerequisites** (git, cmake, make, C++ compiler, Rust, git-lfs)
 2. **Clone embedding.cpp** and compile `libbert_shared.so`
 3. **Download the default model** (all-MiniLM-L6-v2) from HuggingFace
 4. **Convert the model** to GGUF format (requires Python + torch + transformers)

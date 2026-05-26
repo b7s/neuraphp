@@ -111,6 +111,7 @@ final class InstallCommand extends Command
         $git = $this->findExecutable('git');
         $cmake = $this->findExecutable('cmake');
         $make = $this->findExecutable('make');
+        $cargo = $this->findExecutable('cargo');
 
         if ($git === null) {
             $io->error("'git' is required but not found. Install git and try again.");
@@ -130,9 +131,18 @@ final class InstallCommand extends Command
             return false;
         }
 
+        if ($cargo === null) {
+            $io->error("'cargo' (Rust toolchain) is required but not found. Install Rust and try again.");
+            $io->note('Get Rust: https://www.rust-lang.org/tools/install');
+            $io->note('Or run: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh');
+
+            return false;
+        }
+
         $io->text("  ✓ git: {$git}");
         $io->text("  ✓ cmake: {$cmake}");
         $io->text("  ✓ make: {$make}");
+        $io->text("  ✓ cargo: {$cargo}");
 
         // Clone embedding.cpp
         $buildDir = $this->projectRoot.'/build/embedding-cpp';
@@ -228,12 +238,25 @@ final class InstallCommand extends Command
 
         // Check prerequisites
         $git = $this->findExecutable('git');
+        $gitLfs = $this->findExecutable('git-lfs');
 
         if ($git === null) {
             $io->error("'git' is required for model download. Install git and try again.");
 
             return false;
         }
+
+        if ($gitLfs === null) {
+            $io->error("'git-lfs' is required for model download. Install git-lfs and try again.");
+            $io->note('On Ubuntu/Debian: sudo apt install git-lfs');
+            $io->note('On macOS: brew install git-lfs');
+            $io->note('Then run: git lfs install');
+
+            return false;
+        }
+
+        $io->text("  ✓ git: {$git}");
+        $io->text("  ✓ git-lfs: {$gitLfs}");
 
         // Download model from HuggingFace
         $huggingFaceUrl = "https://huggingface.co/sentence-transformers/{$model->directoryName()}";
@@ -323,6 +346,20 @@ final class InstallCommand extends Command
 
         if (! file_exists($convertScript)) {
             $io->text('Conversion script not found. Cannot convert model automatically.');
+
+            return false;
+        }
+
+        // Check required Python packages
+        $io->text('Checking Python dependencies (torch, numpy, transformers)...');
+        $packageCheck = $this->runCommand(
+            [$python, '-c', 'import torch, numpy, transformers'],
+            dirname($convertScript),
+        );
+
+        if ($packageCheck !== 0) {
+            $io->error('Required Python packages are missing.');
+            $io->note('Install them with: pip install torch numpy transformers');
 
             return false;
         }
@@ -483,8 +520,8 @@ final class InstallCommand extends Command
     {
         $descriptors = [
             0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            1 => STDOUT,
+            2 => STDERR,
         ];
 
         $process = proc_open($command, $descriptors, $pipes, $workingDir);
@@ -494,8 +531,6 @@ final class InstallCommand extends Command
         }
 
         fclose($pipes[0]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
 
         return proc_close($process);
     }
