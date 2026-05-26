@@ -457,7 +457,7 @@ final class InstallCommand extends Command
 
         $content = file_get_contents($filePath);
 
-        if ($content === false) {
+        if (! is_string($content)) {
             return;
         }
 
@@ -468,7 +468,7 @@ final class InstallCommand extends Command
             '/\(\*handle\)\.(\w+)\.len\(\)/',
             '(&(*handle).$1).len()',
             $content,
-        );
+        ) ?? $content;
 
         // Fix implicit autoref on .as_mut_ptr() calls (mutable reference)
         // (*handle).encode_ids.as_mut_ptr() → (&mut (*handle).encode_ids).as_mut_ptr()
@@ -477,7 +477,7 @@ final class InstallCommand extends Command
             '/\(\*handle\)\.(\w+)\.as_mut_ptr\(\)/',
             '(&mut (*handle).$1).as_mut_ptr()',
             $content,
-        );
+        ) ?? $content;
 
         file_put_contents($filePath, $content);
     }
@@ -496,7 +496,7 @@ final class InstallCommand extends Command
 
         $content = file_get_contents($filePath);
 
-        if ($content === false) {
+        if (! is_string($content)) {
             return;
         }
 
@@ -614,10 +614,16 @@ final class InstallCommand extends Command
         );
 
         foreach ($iterator as $file) {
+            if (! $file instanceof \SplFileInfo) {
+                continue;
+            }
+
+            $path = $file->getPathname();
+
             if ($file->isDir()) {
-                rmdir($file->getPathname());
+                rmdir($path);
             } else {
-                unlink($file->getPathname());
+                unlink($path);
             }
         }
 
