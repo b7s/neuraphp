@@ -6,16 +6,20 @@ namespace B7s\Neuraphp\Console\Commands;
 
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use RuntimeException;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+#[AsCommand(
+    name: 'install',
+    description: 'Install embedding.cpp library and download models automatically',
+)]
 final class InstallCommand extends Command
 {
-    protected static string $defaultDescription = 'Install embedding.cpp library and download models automatically';
-
     private string $projectRoot;
 
     public function __construct()
@@ -26,9 +30,8 @@ final class InstallCommand extends Command
 
     protected function configure(): void
     {
-        $this->setName('install');
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download', Model::AllMiniLML6V2->value);
-        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::Q4_0->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download', Model::default()->value);
+        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
         $this->addOption('skip-library', null, InputOption::VALUE_NONE, 'Skip library compilation');
         $this->addOption('skip-model', null, InputOption::VALUE_NONE, 'Skip model download');
         $this->addOption('force', null, InputOption::VALUE_NONE, 'Force re-download/re-compile even if files exist');
@@ -158,8 +161,8 @@ final class InstallCommand extends Command
         $io->text('Compiling libbert_shared.so...');
         $buildPath = $sourceDir.'/build';
 
-        if (! is_dir($buildPath)) {
-            mkdir($buildPath, 0755, true);
+        if (!is_dir($buildPath) && !mkdir($buildPath, 0755, true) && !is_dir($buildPath)) {
+            throw new RuntimeException(sprintf('Directory "%s" was not created', $buildPath));
         }
 
         $cmakeResult = $this->runCommand(
@@ -193,8 +196,8 @@ final class InstallCommand extends Command
         }
 
         // Copy to project lib directory
-        if (! is_dir($libDir)) {
-            mkdir($libDir, 0755, true);
+        if (!is_dir($libDir) && !mkdir($libDir, 0755, true) && !is_dir($libDir)) {
+            throw new RuntimeException(sprintf('Directory "%s" was not created', $libDir));
         }
 
         if (! copy($compiledLib, $soPath)) {

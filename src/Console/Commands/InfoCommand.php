@@ -8,21 +8,23 @@ use B7s\Neuraphp\Config;
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
 use B7s\Neuraphp\Neuraphp;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+#[AsCommand(
+    name: 'info',
+    description: 'Show model and configuration information',
+)]
 final class InfoCommand extends Command
 {
-    protected static string $defaultDescription = 'Show model and configuration information';
-
     protected function configure(): void
     {
-        $this->setName('info');
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::AllMiniLML6V2->value);
-        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::Q4_0->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::default()->value);
+        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
         $this->addOption('library-path', null, InputOption::VALUE_OPTIONAL, 'Path to libbert_shared.so');
         $this->addOption('model-path', null, InputOption::VALUE_OPTIONAL, 'Path to model file');
     }

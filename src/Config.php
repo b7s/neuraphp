@@ -31,7 +31,7 @@ final class Config
 
     public function __construct()
     {
-        $this->quantization = Quantization::Q4_0;
+        $this->quantization = Quantization::default();
         $this->threads = self::DEFAULT_THREADS;
         $this->poolingMode = self::DEFAULT_POOLING_MODE;
     }
@@ -167,7 +167,7 @@ final class Config
             return $this->modelPath;
         }
 
-        $model = $this->model ?? Model::AllMiniLML6V2;
+        $model = $this->model ?? Model::default();
 
         return dirname(__DIR__).'/models/'.$model->directoryName().'/'.$model->filename($this->quantization);
     }

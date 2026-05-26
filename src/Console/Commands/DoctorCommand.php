@@ -11,23 +11,25 @@ use B7s\Neuraphp\Exceptions\FFIException;
 use B7s\Neuraphp\Exceptions\LibraryNotFoundException;
 use B7s\Neuraphp\Exceptions\ModelNotFoundException;
 use B7s\Neuraphp\Neuraphp;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+#[AsCommand(
+    name: 'doctor',
+    description: 'Check if Neuraphp is properly configured and ready to use',
+)]
 final class DoctorCommand extends Command
 {
-    protected static string $defaultDescription = 'Check if Neuraphp is properly configured and ready to use';
-
     protected function configure(): void
     {
-        $this->setName('doctor');
         $this->addOption('library-path', null, InputOption::VALUE_OPTIONAL, 'Path to libbert_shared.so');
         $this->addOption('model-path', null, InputOption::VALUE_OPTIONAL, 'Path to model file');
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::AllMiniLML6V2->value);
-        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::Q4_0->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::default()->value);
+        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

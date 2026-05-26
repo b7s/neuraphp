@@ -133,7 +133,7 @@ use B7s\Neuraphp\Enums\Quantization;
 // Single text embedding
 $result = Neuraphp::make()
     ->model(Model::AllMiniLML6V2)
-    ->quantization(Quantization::Q4_0)
+    ->quantization(Quantization::default())
     ->threads(4)
     ->embed('Hello world, this is a test sentence');
 

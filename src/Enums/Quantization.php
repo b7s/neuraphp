@@ -11,6 +11,11 @@ enum Quantization: string
     case Q4_0 = 'q4_0';
     case Q4_1 = 'q4_1';
 
+    public static function default(): self
+    {
+        return self::Q4_0;
+    }
+
     /**
      * Get the GGUF file suffix for this quantization level.
      */

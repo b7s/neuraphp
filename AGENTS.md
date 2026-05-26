@@ -74,7 +74,7 @@ composer check         # All of the above
 1. **Explicit** — Values set via builder methods (`->model()`, `->threads()`, etc.)
 2. **Project config** — `config/neuraphp.php` or `.neuraphp.php` in project root
 3. **Package defaults** — `stubs/neuraphp-config.php`
-4. **Hardcoded defaults** — `Model::AllMiniLML6V2`, `Quantization::Q4_0`, 4 threads
+4. **Hardcoded defaults** — `Model::default()`, `Quantization::default()`, 4 threads
 
 ## FFI Bridge Notes
 
@@ -86,12 +86,12 @@ composer check         # All of the above
 
 ## Default Model Behavior
 
-If `model()` is not called on the builder, `Model::AllMiniLML6V2` is used as the default. This means:
+If `model()` is not called on the builder, `Model::default()` is used as the default. This means:
 
 ```php
 // These are equivalent:
 Neuraphp::make()->embed('text');
-Neuraphp::make()->model(Model::AllMiniLML6V2)->embed('text');
+Neuraphp::make()->model(Model::default())->embed('text');
 ```
 
 ## Release Checklist

@@ -12,28 +12,28 @@ describe('Config', function () {
     it('creates with sensible defaults', function () {
         $config = new Config;
 
-        expect($config->model())->toBeNull();
-        expect($config->quantization())->toBe(Quantization::Q4_0);
-        expect($config->threads())->toBe(4);
-        expect($config->poolingMode())->toBe(PoolingMode::Mean);
-        expect($config->modelPath())->toBeNull();
-        expect($config->libraryPath())->toBeNull();
+        expect($config->model())->toBeNull()
+            ->and($config->quantization())->toBe(Quantization::default())
+            ->and($config->threads())->toBe(4)
+            ->and($config->poolingMode())->toBe(PoolingMode::Mean)
+            ->and($config->modelPath())->toBeNull()
+            ->and($config->libraryPath())->toBeNull();
     });
 
     it('returns immutable copies when using with* methods', function () {
         $original = new Config;
 
-        $withModel = $original->withModel(Model::AllMiniLML6V2);
-        expect($original->model())->toBeNull();
-        expect($withModel->model())->toBe(Model::AllMiniLML6V2);
+        $withModel = $original->withModel(Model::default());
+        expect($original->model())->toBeNull()
+            ->and($withModel->model())->toBe(Model::AllMiniLML6V2);
 
         $withQuantization = $original->withQuantization(Quantization::F16);
-        expect($original->quantization())->toBe(Quantization::Q4_0);
-        expect($withQuantization->quantization())->toBe(Quantization::F16);
+        expect($original->quantization())->toBe(Quantization::default())
+            ->and($withQuantization->quantization())->toBe(Quantization::F16);
 
         $withThreads = $original->withThreads(8);
-        expect($original->threads())->toBe(4);
-        expect($withThreads->threads())->toBe(8);
+        expect($original->threads())->toBe(4)
+            ->and($withThreads->threads())->toBe(8);
     });
 
     it('throws on invalid thread count', function () {
@@ -45,8 +45,8 @@ describe('Config', function () {
         $config = new Config;
         $path = $config->resolveModelPath();
 
-        expect($path)->toContain('all-MiniLM-L6-v2');
-        expect($path)->toContain('ggml-model-q4_0.bin');
+        expect($path)->toContain('all-MiniLM-L6-v2')
+            ->and($path)->toContain('ggml-model-q4_0.bin');
     });
 
     it('resolves model path with explicit model', function () {
@@ -91,8 +91,8 @@ describe('Config', function () {
 
         try {
             $config = Config::resolve($tmpFile);
-            expect($config->threads())->toBe(8);
-            expect($config->quantization())->toBe(Quantization::F16);
+            expect($config->threads())->toBe(8)
+                ->and($config->quantization())->toBe(Quantization::F16);
         } finally {
             @unlink($tmpFile);
         }

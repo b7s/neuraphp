@@ -14,8 +14,8 @@ describe('Neuraphp builder', function () {
 
     it('supports fluent chaining', function () {
         $builder = Neuraphp::make()
-            ->model(Model::AllMiniLML6V2)
-            ->quantization(Quantization::Q4_0)
+            ->model(Model::default())
+            ->quantization(Quantization::default())
             ->threads(4);
 
         expect($builder)->toBeInstanceOf(Neuraphp::class);
@@ -56,6 +56,6 @@ describe('Neuraphp builder', function () {
     it('defaults to AllMiniLML6V2 when model not specified', function () {
         // dimension() uses the default model
         $dimension = Neuraphp::make()->dimension();
-        expect($dimension)->toBe(Model::AllMiniLML6V2->dimensions());
+        expect($dimension)->toBe(Model::default()->dimensions());
     });
 });

@@ -8,8 +8,8 @@ Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API c
 ## Features
 
 - **Local embeddings** — No API calls, no network latency, no data leaving your server
-- **PHP FFI** — Direct memory access to C library, no separate process
-- **Fluent API** — `Neuraphp::make()->model(Model::AllMiniLML6V2)->embed('text')`
+- **PHP FFI** — Direct memory access to a **C library**, no separate process
+- **Fluent API** — `Neuraphp::make()->model(Model::AllMiniLML12V2)->embed('text')`
 - **Multiple models** — AllMiniLM-L6-v2, AllMiniLM-L12-v2, Paraphrase, BGE models
 - **Quantization** — F32, F16, Q4_0, Q4_1 for speed/quality tradeoffs
 - **Vector math** — Cosine similarity, dot product, Euclidean distance, L2 normalization
@@ -25,7 +25,7 @@ Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API c
 
 ### Option A: Automatic Installation (Recommended)
 
-Run the install command — it clones, compiles, and downloads everything for you:
+Run the installation command - it clones, compiles, and downloads everything for you:
 
 ```bash
 ./vendor/bin/neuraphp install
@@ -154,14 +154,14 @@ echo $result->duration();    // 0.012 (seconds)
 
 // With explicit model and quantization
 $result = Neuraphp::make()
-    ->model(Model::AllMiniLML6V2)
-    ->quantization(Quantization::Q4_0)
+    ->model(Model::BgeSmallENV15)
+    ->quantization(Quantization::F16)
     ->threads(4)
     ->embed('Hello world');
 
 // Batch embedding
 $results = Neuraphp::make()
-    ->model(Model::AllMiniLML6V2)
+    ->model(Model::AllMiniLML12V2)
     ->embedBatch(['Hello world', 'Goodbye world']);
 
 // Similarity search
@@ -352,40 +352,6 @@ composer catraca
 
 # Run all checks
 composer check
-```
-
-## Architecture
-
-```
-neuraphp/
-├── src/
-│   ├── Neuraphp.php              # Fluent builder (terminal: embed())
-│   ├── Config.php                 # Cascading config loader
-│   ├── NeuraphpResult.php         # Immutable result object
-│   ├── NeuraphpService.php        # FFI bridge to libbert_shared.so
-│   ├── Console/
-│   │   ├── Application.php        # Symfony Console app
-│   │   └── Commands/
-│   │       ├── DoctorCommand.php  # Diagnostics
-│   │       └── InfoCommand.php    # Configuration info
-│   ├── Enums/
-│   │   ├── Model.php              # Predefined models
-│   │   ├── Quantization.php       # F32, F16, Q4_0, Q4_1
-│   │   └── PoolingMode.php        # Mean, CLS, Last
-│   ├── Exceptions/
-│   │   ├── NeuraphpException.php  # Base exception
-│   │   ├── LibraryNotFoundException.php
-│   │   ├── ModelNotFoundException.php
-│   │   └── FFIException.php
-│   ├── Laravel/
-│   │   ├── NeuraphpServiceProvider.php
-│   │   └── NeuraphpFacade.php
-│   └── Support/
-│       ├── VectorMath.php          # Cosine similarity, dot product, etc.
-│       └── VectorNormalizer.php   # L2 normalization
-├── tests/Unit/                     # Pest tests
-├── stubs/neuraphp-config.php       # Default config template
-└── config/neuraphp.php             # Laravel config template
 ```
 
 ## License

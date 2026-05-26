@@ -44,7 +44,7 @@ final class Neuraphp
 
     /**
      * Set the model to use for embedding.
-     * If not called, defaults to Model::AllMiniLML6V2.
+     * If not called, defaults to Model::default().
      */
     public function model(Model $model): self
     {
@@ -129,7 +129,7 @@ final class Neuraphp
         }
 
         $service = $this->resolveService();
-        $resolvedModel = $this->model ?? Model::AllMiniLML6V2;
+        $resolvedModel = $this->model ?? Model::default();
 
         $start = hrtime(true);
         $vector = $service->encode($text);
@@ -138,7 +138,7 @@ final class Neuraphp
         return NeuraphpResult::make(
             vector: $vector,
             model: $resolvedModel->value,
-            quantization: $this->quantization ?? Quantization::Q4_0,
+            quantization: $this->quantization ?? Quantization::default(),
             duration: $duration,
         );
     }
@@ -158,8 +158,8 @@ final class Neuraphp
         }
 
         $service = $this->resolveService();
-        $resolvedModel = $this->model ?? Model::AllMiniLML6V2;
-        $resolvedQuantization = $this->quantization ?? Quantization::Q4_0;
+        $resolvedModel = $this->model ?? Model::default();
+        $resolvedQuantization = $this->quantization ?? Quantization::default();
 
         $start = hrtime(true);
         $vectors = $service->encodeBatch($texts);
@@ -207,7 +207,7 @@ final class Neuraphp
      */
     public function dimension(): int
     {
-        return ($this->model ?? Model::AllMiniLML6V2)->dimensions();
+        return ($this->model ?? Model::default())->dimensions();
     }
 
     /**

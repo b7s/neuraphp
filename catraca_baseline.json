@@ -13,7 +13,7 @@
         "percentage": null
     },
     "duplication": {
-        "percentage": 0.61,
+        "percentage": 0.6,
         "clones": 1
     },
     "file_size": {
@@ -28,5 +28,5 @@
         "violations": 0
     },
     "schema": "catraca/v1",
-    "updated_at": "2026-05-26T19:13:10+00:00"
+    "updated_at": "2026-05-26T21:29:14+00:00"
 }

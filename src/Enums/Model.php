@@ -13,6 +13,11 @@ enum Model: string
     case BgeSmallENV15 = 'bge-small-en-v1.5';
     case BgeBaseENV15 = 'bge-base-en-v1.5';
 
+    public static function default(): self
+    {
+        return self::AllMiniLML6V2;
+    }
+
     /**
      * Get the number of embedding dimensions for this model.
      */
