@@ -5,7 +5,13 @@ declare(strict_types=1);
 
 use B7s\Neuraphp\Console\Application;
 
-require_once __DIR__ . '/../vendor/autoload.php';
+// When installed as a dependency, the autoloader is at the project root.
+// When developing the package itself, it's in the package's own vendor directory.
+$autoloader = file_exists(__DIR__ . '/../vendor/autoload.php')
+    ? __DIR__ . '/../vendor/autoload.php'
+    : __DIR__ . '/../../../autoload.php';
+
+require_once $autoloader;
 
 $application = new Application();
 $application->run();
