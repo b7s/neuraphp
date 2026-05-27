@@ -3,7 +3,7 @@
 
    # NeuraPHP
 
-Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API calls, no external services at runtime.
+NeuraPHP brings local AI embeddings to PHP—no APIs, no subscriptions, no external services. Run fast, private, personalized text embeddings directly on your machine, saving money while keeping full control of your data. Simple to install, effortless to use, and built for real‑world PHP apps.
 
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -21,11 +21,35 @@ Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API c
 - **Laravel integration** — Optional service provider and facade
 - **Framework-agnostic** — Works with any PHP 8.3+ project
 
+**Docs:** [Manual Installation](docs/advanced-guide.md#manual-installation) · [Quick Start](docs/advanced-guide.md#quick-start) · [API Reference](docs/advanced-guide.md#api-reference) · [Supported Models](docs/advanced-guide.md#supported-models) · [Configuration](docs/advanced-guide.md#configuration) · [Laravel Integration](docs/advanced-guide.md#laravel-integration) · [CLI Reference](docs/advanced-guide.md#cli-commands-reference)
 
 ### Add to your project:
 ```bash
 composer require b7s/neuraphp
 ```
+
+## Quick Start
+
+```php
+use B7s\Neuraphp\Neuraphp;
+use B7s\Neuraphp\ModelReference;
+use B7s\Neuraphp\Enums\Model;
+
+// Embed text (uses default model: AllMiniLML6V2)
+$result = Neuraphp::make()->embed('Hello world');
+echo $result->dimension();  // 384
+
+// Use a specific model
+$result = Neuraphp::make()
+    ->model(Model::BgeSmallENV15)
+    ->embed('Hello world');
+
+// Compare two texts
+$similarity = Neuraphp::make()
+    ->cosineSimilarity('The cat sat on the mat', 'A feline rested on the rug');
+```
+
+> For more examples, custom models, batch embedding, and the full API — see the [Advanced Guide](docs/advanced-guide.md#quick-start)
 
 ## ⚠️ Prerequisites: embedding.cpp Library & Model
 
