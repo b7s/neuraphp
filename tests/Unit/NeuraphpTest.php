@@ -13,6 +13,15 @@ describe('Neuraphp builder', function () {
         expect($builder)->toBeInstanceOf(Neuraphp::class);
     });
 
+    it('supports fluent chaining with Model enum', function () {
+        $builder = Neuraphp::make()
+            ->model(Model::default())
+            ->quantization(Quantization::default())
+            ->threads(4);
+
+        expect($builder)->toBeInstanceOf(Neuraphp::class);
+    });
+
     it('supports fluent chaining with ModelReference', function () {
         $builder = Neuraphp::make()
             ->model(ModelReference::fromEnum(Model::default()))
@@ -27,7 +36,14 @@ describe('Neuraphp builder', function () {
         expect($dimension)->toBe(384);
     });
 
-    it('returns correct dimension for BgeBaseENV15', function () {
+    it('returns correct dimension for BgeBaseENV15 via Model enum', function () {
+        $dimension = Neuraphp::make()
+            ->model(Model::BgeBaseENV15)
+            ->dimension();
+        expect($dimension)->toBe(768);
+    });
+
+    it('returns correct dimension for BgeBaseENV15 via ModelReference', function () {
         $dimension = Neuraphp::make()
             ->model(ModelReference::fromEnum(Model::BgeBaseENV15))
             ->dimension();

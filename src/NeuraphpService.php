@@ -22,7 +22,6 @@ final class NeuraphpService
         int32_t bert_n_embd(bert_ctx* ctx);
         int32_t bert_n_max_tokens(bert_ctx* ctx);
         void bert_encode(bert_ctx* ctx, int32_t n_threads, const char* texts, float* embeddings);
-        void bert_free_float(float* ptr);
     C;
 
     /** @var object|null FFI\CData for bert context */

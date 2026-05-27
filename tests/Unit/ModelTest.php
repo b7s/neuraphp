@@ -43,10 +43,10 @@ describe('Model enum', function () {
     });
 
     it('returns correct filenames for quantization levels', function () {
-        expect(Model::default()->filename(Quantization::default()))->toBe('ggml-model-q4_0.bin')
-            ->and(Model::default()->filename(Quantization::F32))->toBe('ggml-model-f32.bin')
-            ->and(Model::default()->filename(Quantization::F16))->toBe('ggml-model-f16.bin')
-            ->and(Model::default()->filename(Quantization::Q4_1))->toBe('ggml-model-q4_1.bin');
+        expect(Model::default()->filename(Quantization::default()))->toBe('ggml-model-q4_0.gguf')
+            ->and(Model::default()->filename(Quantization::F32))->toBe('ggml-model-f32.gguf')
+            ->and(Model::default()->filename(Quantization::F16))->toBe('ggml-model-f16.gguf')
+            ->and(Model::default()->filename(Quantization::Q4_1))->toBe('ggml-model-q4_1.gguf');
     });
 
     it('returns correct directory names', function () {

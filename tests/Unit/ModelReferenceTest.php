@@ -92,17 +92,17 @@ describe('ModelReference', function () {
     it('returns correct filenames for quantization levels', function () {
         $ref = ModelReference::fromEnum(Model::default());
 
-        expect($ref->filename(Quantization::default()))->toBe('ggml-model-q4_0.bin')
-            ->and($ref->filename(Quantization::F32))->toBe('ggml-model-f32.bin')
-            ->and($ref->filename(Quantization::F16))->toBe('ggml-model-f16.bin')
-            ->and($ref->filename(Quantization::Q4_1))->toBe('ggml-model-q4_1.bin');
+        expect($ref->filename(Quantization::default()))->toBe('ggml-model-q4_0.gguf')
+            ->and($ref->filename(Quantization::F32))->toBe('ggml-model-f32.gguf')
+            ->and($ref->filename(Quantization::F16))->toBe('ggml-model-f16.gguf')
+            ->and($ref->filename(Quantization::Q4_1))->toBe('ggml-model-q4_1.gguf');
     });
 
     it('custom models also return correct filenames', function () {
         $ref = ModelReference::fromId('custom-org/my-model');
 
-        expect($ref->filename(Quantization::Q4_0))->toBe('ggml-model-q4_0.bin')
-            ->and($ref->filename(Quantization::F16))->toBe('ggml-model-f16.bin');
+        expect($ref->filename(Quantization::Q4_0))->toBe('ggml-model-q4_0.gguf')
+            ->and($ref->filename(Quantization::F16))->toBe('ggml-model-f16.gguf');
     });
 
     it('preserves enum metadata when creating from known model', function () {

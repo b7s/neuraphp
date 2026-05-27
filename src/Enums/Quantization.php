@@ -35,6 +35,16 @@ enum Quantization: string
     public function filename(): string
     {
         return match ($this) {
+            self::F32 => 'ggml-model-f32.gguf',
+            self::F16 => 'ggml-model-f16.gguf',
+            self::Q4_0 => 'ggml-model-q4_0.gguf',
+            self::Q4_1 => 'ggml-model-q4_1.gguf',
+        };
+    }
+
+    public function legacyFilename(): string
+    {
+        return match ($this) {
             self::F32 => 'ggml-model-f32.bin',
             self::F16 => 'ggml-model-f16.bin',
             self::Q4_0 => 'ggml-model-q4_0.bin',

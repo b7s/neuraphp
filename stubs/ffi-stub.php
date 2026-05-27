@@ -15,7 +15,6 @@
  * @method int bert_n_embd(FFI\CData $ctx)
  * @method int bert_n_max_tokens(FFI\CData $ctx)
  * @method void bert_encode(FFI\CData $ctx, int $n_threads, string $texts, FFI\CData $embeddings)
- * @method void bert_free_float(FFI\CData $ptr)
  */
 
 namespace FFI {

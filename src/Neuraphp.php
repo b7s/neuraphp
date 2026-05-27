@@ -44,11 +44,14 @@ final class Neuraphp
 
     /**
      * Set the model to use for embedding.
-     * If not called, defaults to Model::default().
+     * If not called, defaults to all-MiniLM-L6-v2.
+     *
+     * Accepts either a Model enum case (wrapped into a ModelReference)
+     * or a ModelReference directly for custom models.
      */
-    public function model(ModelReference $model): self
+    public function model(Model|ModelReference $model): self
     {
-        $this->model = $model;
+        $this->model = $model instanceof Model ? ModelReference::fromEnum($model) : $model;
 
         return $this;
     }

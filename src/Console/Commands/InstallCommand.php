@@ -174,13 +174,13 @@ final class InstallCommand extends Command
 
         $io->text('Cloning embedding.cpp repository...');
         $cloneResult = $this->runCommand(
-            ['git', 'clone', '--depth', '1', '--recurse-submodules', 'https://github.com/FFengIll/embedding.cpp', $sourceDir],
+            ['git', 'clone', '--depth', '1', '--recurse-submodules', 'https://github.com/b7s/embedding.cpp', $sourceDir],
             $tempDir,
         );
 
         if ($cloneResult !== 0) {
             $io->error('Failed to clone embedding.cpp. Check your internet connection and try again.');
-            $io->note('Manual alternative: git clone https://github.com/FFengIll/embedding.cpp');
+            $io->note('Manual alternative: git clone https://github.com/b7s/embedding.cpp');
 
             return false;
         }
@@ -324,7 +324,7 @@ final class InstallCommand extends Command
             $io->text('<comment>Option 2: Manual conversion</comment>');
             $io->text('  1. Install Python 3.8+ and pip');
             $io->text('  2. Install requirements: pip install torch numpy transformers');
-            $io->text('  3. Convert the model using embedding.cpp/models/convert-to-ggml.py');
+            $io->text('  3. Convert the model using embedding.cpp/models/convert-to-gguf.py');
             $io->text('');
             $io->text('  Then copy the converted model file to:');
             $io->text("  {$modelFile}");
@@ -382,7 +382,11 @@ final class InstallCommand extends Command
             return false;
         }
 
-        $convertScript = $embeddingCppDir.'/models/convert-to-ggml.py';
+        $convertScript = $embeddingCppDir.'/models/convert-to-gguf.py';
+
+        if (! file_exists($convertScript)) {
+            $convertScript = $embeddingCppDir.'/models/convert-to-ggml.py';
+        }
 
         if (! file_exists($convertScript)) {
             $io->text('Conversion script not found. Cannot convert model automatically.');
@@ -390,10 +394,16 @@ final class InstallCommand extends Command
             return false;
         }
 
+        $isGguf = str_ends_with($convertScript, 'convert-to-gguf.py');
+
         // Check required Python packages
-        $io->text('Checking Python dependencies (torch, numpy, transformers)...');
+        $requiredImports = $isGguf
+            ? 'import torch, numpy, transformers, gguf, sentencepiece'
+            : 'import torch, numpy, transformers';
+
+        $io->text('Checking Python dependencies...');
         $packageCheck = $this->runCommand(
-            [$python, '-c', 'import torch, numpy, transformers'],
+            [$python, '-c', $requiredImports],
             dirname($convertScript),
         );
 
@@ -401,7 +411,7 @@ final class InstallCommand extends Command
             // Try to auto-install dependencies if Python is in a virtualenv
             if ($this->isVirtualenvPython($python)) {
                 $io->text('Python dependencies missing. Attempting to install into virtualenv...');
-                $installed = $this->installPythonDeps($io, $python, dirname($convertScript));
+                $installed = $this->installPythonDeps($io, $python, dirname($convertScript), $isGguf);
 
                 if (! $installed) {
                     $io->error('Failed to install Python dependencies automatically.');
@@ -439,17 +449,23 @@ final class InstallCommand extends Command
         $quantizeBin = $embeddingCppDir.'/build/bin/quantize';
 
         if ($quantization !== Quantization::F16 && $quantization !== Quantization::F32 && file_exists($quantizeBin)) {
-            $f16File = $sourceDir.'/../ggml-model-f16.bin';
+            $f16File = null;
 
-            if (! file_exists($f16File)) {
-                $f16File = $sourceDir.'/ggml-model-f16.bin';
+            foreach ([
+                $sourceDir.'/../ggml-model-f16.gguf',
+                $sourceDir.'/../ggml-model-f16.bin',
+                $sourceDir.'/ggml-model-f16.gguf',
+                $sourceDir.'/ggml-model-f16.bin',
+                $modelDir.'/ggml-model-f16.gguf',
+                $modelDir.'/ggml-model-f16.bin',
+            ] as $candidate) {
+                if (file_exists($candidate)) {
+                    $f16File = $candidate;
+                    break;
+                }
             }
 
-            if (! file_exists($f16File)) {
-                $f16File = $modelDir.'/ggml-model-f16.bin';
-            }
-
-            if (file_exists($f16File)) {
+            if ($f16File !== null && file_exists($f16File)) {
                 $quantizeType = match ($quantization) {
                     Quantization::Q4_0 => '2',
                     Quantization::Q4_1 => '3',
@@ -465,9 +481,16 @@ final class InstallCommand extends Command
                 if ($quantizeResult !== 0) {
                     $io->text('Quantization failed. The f16 model may still be usable.');
 
-                    // Try to use f16 as fallback
-                    $f16Output = $modelDir.'/ggml-model-f16.bin';
-                    if (file_exists($f16Output)) {
+                    // Try to use f16 as fallback (prefer .gguf, then .bin)
+                    $f16Fallback = null;
+                    foreach ([$modelDir.'/ggml-model-f16.gguf', $modelDir.'/ggml-model-f16.bin'] as $candidate) {
+                        if (file_exists($candidate)) {
+                            $f16Fallback = $candidate;
+                            break;
+                        }
+                    }
+
+                    if ($f16Fallback !== null) {
                         $io->text('Falling back to f16 model.');
 
                         return true;
@@ -489,12 +512,19 @@ final class InstallCommand extends Command
 
         // Fallback: if quantization was skipped (quantize binary missing),
         // accept the f16 file as a valid fallback
-        $f16File = $modelDir.'/ggml-model-f16.bin';
+        $f16File = null;
 
-        if (file_exists($f16File)) {
+        foreach (['ggml-model-f16.gguf', 'ggml-model-f16.bin'] as $candidate) {
+            $path = $modelDir.'/'.$candidate;
+            if (file_exists($path)) {
+                $f16File = $path;
+                break;
+            }
+        }
+
+        if ($f16File !== null && file_exists($f16File)) {
             $io->text('Quantize binary not available. Using f16 model as fallback.');
 
-            // Rename f16 file to expected filename so downstream code finds it
             $expectedFile = $modelDir.'/'.$model->filename($quantization);
 
             if ($expectedFile !== $f16File && ! file_exists($expectedFile)) {
@@ -593,33 +623,22 @@ final class InstallCommand extends Command
             throw new RuntimeException(sprintf('Directory "%s" was not created', $modelDir));
         }
 
-        $patterns = ['ggml-model-*.bin'];
+        $patterns = ['ggml-model-*.gguf', 'ggml-model-*.bin'];
 
         foreach ($patterns as $pattern) {
-            $files = glob($sourceDir.'/../'.$pattern);
-            if ($files === false) {
-                continue;
-            }
-
-            foreach ($files as $file) {
-                $filename = basename($file);
-                $dest = $modelDir.'/'.$filename;
-
-                if (! file_exists($dest)) {
-                    copy($file, $dest);
+            foreach ([$sourceDir.'/../'.$pattern, $sourceDir.'/'.$pattern] as $globPattern) {
+                $files = glob($globPattern);
+                if ($files === false) {
+                    continue;
                 }
-            }
-        }
 
-        // Also check source dir itself
-        $files = glob($sourceDir.'/ggml-model-*.bin');
-        if ($files !== false) {
-            foreach ($files as $file) {
-                $filename = basename($file);
-                $dest = $modelDir.'/'.$filename;
+                foreach ($files as $file) {
+                    $filename = basename($file);
+                    $dest = $modelDir.'/'.$filename;
 
-                if (! file_exists($dest)) {
-                    copy($file, $dest);
+                    if (! file_exists($dest)) {
+                        copy($file, $dest);
+                    }
                 }
             }
         }
@@ -859,9 +878,16 @@ final class InstallCommand extends Command
     /**
      * Attempt to install Python dependencies into a virtualenv.
      */
-    private function installPythonDeps(SymfonyStyle $io, string $pythonPath, string $workingDir): bool
+    private function installPythonDeps(SymfonyStyle $io, string $pythonPath, string $workingDir, bool $ggufMode = false): bool
     {
-        $io->text('Installing torch, numpy, transformers...');
+        $packages = ['torch', 'numpy', 'transformers'];
+
+        if ($ggufMode) {
+            $packages[] = 'gguf';
+            $packages[] = 'sentencepiece';
+        }
+
+        $io->text('Installing '.implode(', ', $packages).'...');
 
         // Find pip alongside the Python executable
         $binDir = dirname($pythonPath);
@@ -876,7 +902,7 @@ final class InstallCommand extends Command
             $io->text('pip not found alongside Python, using python -m pip...');
 
             $result = $this->runCommand(
-                [$pythonPath, '-m', 'pip', 'install', 'torch', 'numpy', 'transformers'],
+                array_merge([$pythonPath, '-m', 'pip', 'install'], $packages),
                 $workingDir,
             );
 
@@ -885,7 +911,7 @@ final class InstallCommand extends Command
             }
         } else {
             $result = $this->runCommand(
-                [$pipPath, 'install', 'torch', 'numpy', 'transformers'],
+                array_merge([$pipPath, 'install'], $packages),
                 $workingDir,
             );
 
@@ -896,8 +922,12 @@ final class InstallCommand extends Command
 
         // Verify installation
         $io->text('Verifying Python dependencies...');
+        $verifyImports = $ggufMode
+            ? 'import torch, numpy, transformers, gguf, sentencepiece'
+            : 'import torch, numpy, transformers';
+
         $verifyResult = $this->runCommand(
-            [$pythonPath, '-c', 'import torch, numpy, transformers'],
+            [$pythonPath, '-c', $verifyImports],
             $workingDir,
         );
 

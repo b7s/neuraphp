@@ -167,6 +167,16 @@ final readonly class ModelReference
     }
 
     /**
+     * Get the legacy .bin model filename for this model with the given quantization.
+     */
+    public function legacyFilename(?Quantization $quantization = null): string
+    {
+        $quantization ??= Quantization::default();
+
+        return $quantization->legacyFilename();
+    }
+
+    /**
      * A display-friendly identifier for this model.
      */
     public function displayName(): string

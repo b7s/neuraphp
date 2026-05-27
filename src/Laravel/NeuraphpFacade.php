@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace B7s\Neuraphp\Laravel;
 
+use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
 use B7s\Neuraphp\ModelReference;
 use B7s\Neuraphp\Neuraphp;
@@ -11,7 +12,7 @@ use B7s\Neuraphp\NeuraphpResult;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static Neuraphp model(ModelReference $model)
+ * @method static Neuraphp model(Model|ModelReference $model)
  * @method static Neuraphp quantization(Quantization $quantization)
  * @method static Neuraphp threads(int $threads)
  * @method static Neuraphp modelPath(string $modelPath)

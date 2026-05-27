@@ -19,11 +19,18 @@ describe('Quantization enum', function () {
             ->and(Quantization::Q4_1->fileSuffix())->toBe('q4_1');
     });
 
-    it('returns correct filenames', function () {
-        expect(Quantization::F32->filename())->toBe('ggml-model-f32.bin')
-            ->and(Quantization::F16->filename())->toBe('ggml-model-f16.bin')
-            ->and(Quantization::Q4_0->filename())->toBe('ggml-model-q4_0.bin')
-            ->and(Quantization::Q4_1->filename())->toBe('ggml-model-q4_1.bin');
+    it('returns correct GGUF filenames', function () {
+        expect(Quantization::F32->filename())->toBe('ggml-model-f32.gguf')
+            ->and(Quantization::F16->filename())->toBe('ggml-model-f16.gguf')
+            ->and(Quantization::Q4_0->filename())->toBe('ggml-model-q4_0.gguf')
+            ->and(Quantization::Q4_1->filename())->toBe('ggml-model-q4_1.gguf');
+    });
+
+    it('returns correct legacy filenames', function () {
+        expect(Quantization::F32->legacyFilename())->toBe('ggml-model-f32.bin')
+            ->and(Quantization::F16->legacyFilename())->toBe('ggml-model-f16.bin')
+            ->and(Quantization::Q4_0->legacyFilename())->toBe('ggml-model-q4_0.bin')
+            ->and(Quantization::Q4_1->legacyFilename())->toBe('ggml-model-q4_1.bin');
     });
 
     it('returns human-readable labels', function () {

@@ -187,7 +187,21 @@ final class Config
 
         $model = $this->model ?? ModelReference::fromEnum(Model::default());
 
-        return self::resolveProjectRoot().'/bin/neuraphp/models/'.$model->directoryName().'/'.$model->filename($this->quantization);
+        $baseDir = self::resolveProjectRoot().'/bin/neuraphp/models/'.$model->directoryName().'/';
+
+        $ggufPath = $baseDir.$model->filename($this->quantization);
+
+        if (file_exists($ggufPath)) {
+            return $ggufPath;
+        }
+
+        $legacyPath = $baseDir.$model->legacyFilename($this->quantization);
+
+        if (file_exists($legacyPath)) {
+            return $legacyPath;
+        }
+
+        return $ggufPath;
     }
 
     /**

@@ -47,7 +47,7 @@ describe('Config', function () {
         $path = $config->resolveModelPath();
 
         expect($path)->toContain('all-MiniLM-L6-v2')
-            ->and($path)->toContain('ggml-model-q4_0.bin');
+            ->and($path)->toContain('ggml-model-q4_0.gguf');
     });
 
     it('resolves model path with explicit known model', function () {
@@ -62,7 +62,7 @@ describe('Config', function () {
         $path = $config->resolveModelPath();
 
         expect($path)->toContain('my-model')
-            ->and($path)->toContain('ggml-model-q4_0.bin');
+            ->and($path)->toContain('ggml-model-q4_0.gguf');
     });
 
     it('resolves model path with explicit override', function () {
