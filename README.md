@@ -21,6 +21,12 @@ Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API c
 - **Laravel integration** — Optional service provider and facade
 - **Framework-agnostic** — Works with any PHP 8.3+ project
 
+
+### Add to your project:
+```bash
+composer require b7s/neuraphp
+```
+
 ## ⚠️ Prerequisites: embedding.cpp Library & Model
 
 **Neuraphp requires `libbert_shared.so` (compiled from embedding.cpp) and a GGUF model file to function.** There are two ways to set these up:
