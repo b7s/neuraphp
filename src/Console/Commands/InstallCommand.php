@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace B7s\Neuraphp\Console\Commands;
 
+use B7s\Neuraphp\Config;
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
 use FilesystemIterator;
@@ -29,7 +30,7 @@ final class InstallCommand extends Command
     public function __construct()
     {
         parent::__construct();
-        $this->projectRoot = dirname(__DIR__, 3);
+        $this->projectRoot = Config::resolveProjectRoot();
     }
 
     protected function configure(): void
@@ -97,6 +98,9 @@ final class InstallCommand extends Command
             $this->removeDir($tempDir);
         }
 
+        // Ensure .gitignore exists so installed artifacts are not committed
+        $this->ensureGitignore();
+
         // Summary
         $io->section('Summary');
         if ($hasErrors) {
@@ -115,7 +119,7 @@ final class InstallCommand extends Command
     {
         $io->section('Step 1: Installing embedding.cpp library');
 
-        $libDir = $this->projectRoot.'/lib';
+        $libDir = $this->projectRoot.'/bin/neuraphp/lib';
         $soPath = $libDir.'/libbert_shared.so';
 
         // Check if already installed
@@ -195,7 +199,7 @@ final class InstallCommand extends Command
         }
 
         $cmakeResult = $this->runCommand(
-            ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON'],
+            ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON'],
             $buildPath,
         );
 
@@ -207,7 +211,7 @@ final class InstallCommand extends Command
             return false;
         }
 
-        $makeResult = $this->runCommand(['make', '-j'.(string) $this->getCpuCores(), 'bert'], $buildPath);
+        $makeResult = $this->runCommand(['make', '-j'.(string) $this->getCpuCores(), 'bert_shared'], $buildPath);
 
         if ($makeResult !== 0) {
             $io->error('Compilation failed. Check the error output above.');
@@ -245,7 +249,7 @@ final class InstallCommand extends Command
     {
         $io->section('Step 2: Downloading model');
 
-        $modelDir = $this->projectRoot.'/models/'.$model->directoryName();
+        $modelDir = $this->projectRoot.'/bin/neuraphp/models/'.$model->directoryName();
         $modelFile = $modelDir.'/'.$model->filename($quantization);
 
         // Check if already downloaded
@@ -433,6 +437,10 @@ final class InstallCommand extends Command
             $f16File = $sourceDir.'/../ggml-model-f16.bin';
 
             if (! file_exists($f16File)) {
+                $f16File = $sourceDir.'/ggml-model-f16.bin';
+            }
+
+            if (! file_exists($f16File)) {
                 $f16File = $modelDir.'/ggml-model-f16.bin';
             }
 
@@ -468,7 +476,30 @@ final class InstallCommand extends Command
         // Copy converted files to model directory
         $this->copyConvertedFiles($sourceDir, $modelDir);
 
-        return file_exists($modelDir.'/'.$model->filename($quantization));
+        $expectedFile = $modelDir.'/'.$model->filename($quantization);
+
+        if (file_exists($expectedFile)) {
+            return true;
+        }
+
+        // Fallback: if quantization was skipped (quantize binary missing),
+        // accept the f16 file as a valid fallback
+        $f16File = $modelDir.'/ggml-model-f16.bin';
+
+        if (file_exists($f16File)) {
+            $io->text('Quantize binary not available. Using f16 model as fallback.');
+
+            // Rename f16 file to expected filename so downstream code finds it
+            $expectedFile = $modelDir.'/'.$model->filename($quantization);
+
+            if ($expectedFile !== $f16File && ! file_exists($expectedFile)) {
+                copy($f16File, $expectedFile);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -618,6 +649,23 @@ final class InstallCommand extends Command
         }
 
         return null;
+    }
+
+    private function ensureGitignore(): void
+    {
+        $gitignoreDir = $this->projectRoot.'/bin/neuraphp';
+
+        if (! is_dir($gitignoreDir) && ! mkdir($gitignoreDir, 0755, true) && ! is_dir($gitignoreDir)) {
+            return;
+        }
+
+        $gitignorePath = $gitignoreDir.'/.gitignore';
+
+        if (file_exists($gitignorePath)) {
+            return;
+        }
+
+        file_put_contents($gitignorePath, "# Ignore all downloaded/generated files\n*\n!.gitignore\n");
     }
 
     private function createTempDir(): string

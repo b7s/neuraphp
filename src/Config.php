@@ -63,6 +63,24 @@ final class Config
         return $config;
     }
 
+    /**
+     * Resolve the project root directory.
+     *
+     * When installed as a Composer package, the project root is the directory
+     * above vendor/. When running standalone, the package root is returned.
+     */
+    public static function resolveProjectRoot(): string
+    {
+        $packageRoot = dirname(__DIR__);
+        $vendorCandidate = dirname($packageRoot, 2);
+
+        if (basename($vendorCandidate) === 'vendor') {
+            return dirname($vendorCandidate);
+        }
+
+        return $packageRoot;
+    }
+
     public function model(): ?Model
     {
         return $this->model;
@@ -169,7 +187,7 @@ final class Config
 
         $model = $this->model ?? Model::default();
 
-        return dirname(__DIR__).'/models/'.$model->directoryName().'/'.$model->filename($this->quantization);
+        return self::resolveProjectRoot().'/bin/neuraphp/models/'.$model->directoryName().'/'.$model->filename($this->quantization);
     }
 
     /**
@@ -190,7 +208,7 @@ final class Config
         }
 
         $searchPaths = [
-            dirname(__DIR__).'/lib/libbert_shared.so',
+            self::resolveProjectRoot().'/bin/neuraphp/lib/libbert_shared.so',
             '/usr/local/lib/libbert_shared.so',
             '/usr/lib/libbert_shared.so',
         ];

@@ -33,10 +33,11 @@ Run the installation command - it clones, compiles, and downloads everything for
 
 This will:
 1. **Check prerequisites** (git, cmake, make, C++ compiler, Rust, git-lfs)
-2. **Clone embedding.cpp** and compile `libbert_shared.so`
+2. **Clone embedding.cpp** into a temp directory and compile `libbert_shared.so`
 3. **Download the default model** (all-MiniLM-L6-v2) from HuggingFace
 4. **Convert the model** to GGUF format (requires Python + torch + transformers)
-5. **Place everything** in the right directories
+5. **Copy only final artifacts** to `bin/neuraphp/` in your project root
+   - **Clean up** temp files and create `bin/neuraphp/.gitignore` so artifacts are never committed
 
 **Options:**
 
@@ -93,11 +94,11 @@ git clone https://github.com/FFengIll/embedding.cpp
 cd embedding.cpp
 git submodule update --init --recursive
 mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
-make -j$(nproc) bert
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+make -j$(nproc) bert_shared
 ```
 
-> **Note:** Use `-DBUILD_SHARED_LIBS=ON` to build the shared library. The output will be `libbert.so` (or `libbert_shared.so` depending on your platform).
+> **Note:** This builds `libbert_shared.so` with static `libggml.a` baked in, so there is no runtime dependency on `libggml.so`.
 
 #### Step 2: Install the shared library
 
@@ -105,17 +106,17 @@ Copy the compiled library to a location where Neuraphp can find it:
 
 ```bash
 # Option A: Project-local (recommended)
-mkdir -p /path/to/your/project/lib
-cp libbert*.so /path/to/your/project/lib/libbert_shared.so
+mkdir -p /path/to/your/project/bin/neuraphp/lib
+cp libbert_shared.so /path/to/your/project/bin/neuraphp/lib/
 
 # Option B: System-wide
-sudo cp libbert*.so /usr/local/lib/libbert_shared.so
+sudo cp libbert_shared.so /usr/local/lib/libbert_shared.so
 sudo ldconfig
 ```
 
 Neuraphp searches for `libbert_shared.so` in this order:
 1. Explicit path via `libraryPath()` or config
-2. `<package_root>/lib/libbert_shared.so`
+2. `<project_root>/bin/neuraphp/lib/libbert_shared.so`
 3. `/usr/local/lib/libbert_shared.so`
 4. `/usr/lib/libbert_shared.so`
 
@@ -140,8 +141,8 @@ python3 convert-to-ggml.py all-MiniLM-L6-v2/ 1   # f16
 Place the model files in your project:
 
 ```bash
-mkdir -p /path/to/your/project/models/all-MiniLM-L6-v2/
-cp all-MiniLM-L6-v2/ggml-model-q4_0.bin /path/to/your/project/models/all-MiniLM-L6-v2/
+mkdir -p /path/to/your/project/bin/neuraphp/models/all-MiniLM-L6-v2/
+cp all-MiniLM-L6-v2/ggml-model-q4_0.bin /path/to/your/project/bin/neuraphp/models/all-MiniLM-L6-v2/
 ```
 
 #### Step 4: Verify with the doctor command
