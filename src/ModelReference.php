@@ -162,6 +162,7 @@ final readonly class ModelReference
     public function filename(?Quantization $quantization = null): string
     {
         $quantization ??= Quantization::default();
+
         return $quantization->filename();
     }
 
