@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use B7s\Neuraphp\ModelReference;
 use B7s\Neuraphp\Neuraphp;
 
 describe('Neuraphp builder', function () {
@@ -12,9 +13,9 @@ describe('Neuraphp builder', function () {
         expect($builder)->toBeInstanceOf(Neuraphp::class);
     });
 
-    it('supports fluent chaining', function () {
+    it('supports fluent chaining with ModelReference', function () {
         $builder = Neuraphp::make()
-            ->model(Model::default())
+            ->model(ModelReference::fromEnum(Model::default()))
             ->quantization(Quantization::default())
             ->threads(4);
 
@@ -28,7 +29,28 @@ describe('Neuraphp builder', function () {
 
     it('returns correct dimension for BgeBaseENV15', function () {
         $dimension = Neuraphp::make()
-            ->model(Model::BgeBaseENV15)
+            ->model(ModelReference::fromEnum(Model::BgeBaseENV15))
+            ->dimension();
+        expect($dimension)->toBe(768);
+    });
+
+    it('returns correct dimension for BgeLargeENV15', function () {
+        $dimension = Neuraphp::make()
+            ->model(ModelReference::fromEnum(Model::BgeLargeENV15))
+            ->dimension();
+        expect($dimension)->toBe(1024);
+    });
+
+    it('returns null dimension for custom model without configured dimensions', function () {
+        $dimension = Neuraphp::make()
+            ->model(ModelReference::fromId('custom-org/my-model'))
+            ->dimension();
+        expect($dimension)->toBeNull();
+    });
+
+    it('returns configured dimension for custom model with dimensions', function () {
+        $dimension = Neuraphp::make()
+            ->model(ModelReference::fromId('custom-org/my-model')->withDimensions(768))
             ->dimension();
         expect($dimension)->toBe(768);
     });
@@ -54,7 +76,6 @@ describe('Neuraphp builder', function () {
     })->throws(InvalidArgumentException::class, 'Thread count must be at least 1.');
 
     it('defaults to AllMiniLML6V2 when model not specified', function () {
-        // dimension() uses the default model
         $dimension = Neuraphp::make()->dimension();
         expect($dimension)->toBe(Model::default()->dimensions());
     });

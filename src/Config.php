@@ -15,7 +15,7 @@ final class Config
 
     private const PoolingMode DEFAULT_POOLING_MODE = PoolingMode::Mean;
 
-    private ?Model $model = null;
+    private ?ModelReference $model = null;
 
     private Quantization $quantization;
 
@@ -81,7 +81,7 @@ final class Config
         return $packageRoot;
     }
 
-    public function model(): ?Model
+    public function model(): ?ModelReference
     {
         return $this->model;
     }
@@ -116,7 +116,7 @@ final class Config
         return $this->configPath;
     }
 
-    public function withModel(Model $model): self
+    public function withModel(ModelReference $model): self
     {
         $clone = clone $this;
         $clone->model = $model;
@@ -185,7 +185,7 @@ final class Config
             return $this->modelPath;
         }
 
-        $model = $this->model ?? Model::default();
+        $model = $this->model ?? ModelReference::fromEnum(Model::default());
 
         return self::resolveProjectRoot().'/bin/neuraphp/models/'.$model->directoryName().'/'.$model->filename($this->quantization);
     }
@@ -229,8 +229,10 @@ final class Config
      */
     private function applyArray(array $config): void
     {
-        if (isset($config['model']) && is_string($config['model'])) {
-            $this->model = Model::from($config['model']);
+        $modelRef = ModelReference::parseFromConfig($config);
+
+        if ($modelRef !== null) {
+            $this->model = $modelRef;
         }
 
         if (isset($config['quantization']) && is_string($config['quantization'])) {

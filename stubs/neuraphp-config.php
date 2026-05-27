@@ -4,15 +4,40 @@ declare(strict_types=1);
 
 return [
     /*
-    |--------------------------------------------------------------------------
-    | Default Model
-    |--------------------------------------------------------------------------
-    |
-    | The default embedding model to use. This should match one of the
-    | Model enum values. If not set, AllMiniLML6V2 is used.
-    |
-    */
+|--------------------------------------------------------------------------
+| Default Model
+|--------------------------------------------------------------------------
+|
+| The default embedding model to use. Can be either:
+|   - A known model short name (e.g. 'all-MiniLM-L6-v2', 'bge-large-en-v1.5')
+|   - A full HuggingFace ID (e.g. 'BAAI/bge-large-en-v1.5', 'intfloat/e5-base-v2')
+|
+| If not set, all-MiniLM-L6-v2 is used.
+|
+*/
     'model' => 'all-MiniLM-L6-v2',
+
+    /*
+|--------------------------------------------------------------------------
+| Model Dimensions (optional, for custom models)
+|--------------------------------------------------------------------------
+|
+| The number of embedding dimensions. Only needed for custom models
+| not present in the Model enum. Known models have dimensions built-in.
+|
+*/
+    'model_dimensions' => null,
+
+    /*
+|--------------------------------------------------------------------------
+| Model Max Tokens (optional, for custom models)
+|--------------------------------------------------------------------------
+|
+| The maximum number of tokens the model can process.
+| Only needed for custom models not present in the Model enum.
+|
+*/
+    'model_max_tokens' => null,
 
     /*
     |--------------------------------------------------------------------------

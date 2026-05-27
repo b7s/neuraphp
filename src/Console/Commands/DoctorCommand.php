@@ -10,6 +10,7 @@ use B7s\Neuraphp\Enums\Quantization;
 use B7s\Neuraphp\Exceptions\FFIException;
 use B7s\Neuraphp\Exceptions\LibraryNotFoundException;
 use B7s\Neuraphp\Exceptions\ModelNotFoundException;
+use B7s\Neuraphp\ModelReference;
 use B7s\Neuraphp\Neuraphp;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -28,7 +29,7 @@ final class DoctorCommand extends Command
     {
         $this->addOption('library-path', null, InputOption::VALUE_OPTIONAL, 'Path to libbert_shared.so');
         $this->addOption('model-path', null, InputOption::VALUE_OPTIONAL, 'Path to model file');
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::default()->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name (enum name or HuggingFace ID)', Model::default()->value);
         $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
     }
 
@@ -76,7 +77,7 @@ final class DoctorCommand extends Command
         /** @var string|null $modelOption */
         $modelOption = $input->getOption('model');
         if (is_string($modelOption) && $modelOption !== '') {
-            $config = $config->withModel(Model::from($modelOption));
+            $config = $config->withModel(ModelReference::parse($modelOption));
         }
         /** @var string|null $quantizationOption */
         $quantizationOption = $input->getOption('quantization');
@@ -111,7 +112,7 @@ final class DoctorCommand extends Command
                     $neuraphp = $neuraphp->modelPath($modelPathOption);
                 }
                 if (is_string($modelOption) && $modelOption !== '') {
-                    $neuraphp = $neuraphp->model(Model::from($modelOption));
+                    $neuraphp = $neuraphp->model(ModelReference::parse($modelOption));
                 }
                 if (is_string($quantizationOption) && $quantizationOption !== '') {
                     $neuraphp = $neuraphp->quantization(Quantization::from($quantizationOption));

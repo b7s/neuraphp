@@ -7,6 +7,7 @@ namespace B7s\Neuraphp\Console\Commands;
 use B7s\Neuraphp\Config;
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use B7s\Neuraphp\ModelReference;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -35,7 +36,7 @@ final class InstallCommand extends Command
 
     protected function configure(): void
     {
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download', Model::default()->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download (enum name or HuggingFace ID like BAAI/bge-large-en-v1.5)', Model::default()->value);
         $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
         $this->addOption('skip-library', null, InputOption::VALUE_NONE, 'Skip library compilation');
         $this->addOption('skip-model', null, InputOption::VALUE_NONE, 'Skip model download');
@@ -51,7 +52,7 @@ final class InstallCommand extends Command
 
         /** @var string $modelValue */
         $modelValue = $input->getOption('model');
-        $model = Model::from($modelValue);
+        $model = ModelReference::parse($modelValue);
 
         /** @var string $quantizationValue */
         $quantizationValue = $input->getOption('quantization');
@@ -245,7 +246,7 @@ final class InstallCommand extends Command
         return true;
     }
 
-    private function installModel(SymfonyStyle $io, Model $model, Quantization $quantization, bool $force, string $tempDir, bool $keepSource, string $pythonPath): bool
+    private function installModel(SymfonyStyle $io, ModelReference $model, Quantization $quantization, bool $force, string $tempDir, bool $keepSource, string $pythonPath): bool
     {
         $io->section('Step 2: Downloading model');
 
@@ -278,14 +279,18 @@ final class InstallCommand extends Command
             return false;
         }
 
-        $io->text("  ✓ git: {$git}");
-        $io->text("  ✓ git-lfs: {$gitLfs}");
+        $io->text(" ✓ git: {$git}");
+        $io->text(" ✓ git-lfs: {$gitLfs}");
+
+        if (! $model->isKnown()) {
+            $io->note("Custom model: {$model->huggingFaceId()}. Ensure this is a BERT-architecture model compatible with embedding.cpp.");
+        }
 
         // Download model from HuggingFace into temp directory
-        $huggingFaceUrl = "https://huggingface.co/sentence-transformers/{$model->directoryName()}";
+        $huggingFaceUrl = "https://huggingface.co/{$model->huggingFaceId()}";
         $sourceDir = $tempDir.'/'.$model->directoryName();
 
-        $io->text("Downloading model from HuggingFace: {$model->directoryName()}...");
+        $io->text("Downloading model from HuggingFace: {$model->huggingFaceId()}...");
         $io->note('This may take a while depending on the model size.');
 
         $cloneResult = $this->runCommand(
@@ -294,7 +299,7 @@ final class InstallCommand extends Command
         );
 
         if ($cloneResult !== 0) {
-            $io->error("Failed to download model '{$model->value}' from HuggingFace.");
+            $io->error("Failed to download model '{$model->huggingFaceId()}' from HuggingFace.");
             $io->note("The model may not exist at: {$huggingFaceUrl}");
             $io->note('Check the model name and try again, or download manually.');
 
@@ -348,7 +353,7 @@ final class InstallCommand extends Command
         return true;
     }
 
-    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, Model $model, Quantization $quantization, string $tempDir, string $pythonPath): bool
+    private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, ModelReference $model, Quantization $quantization, string $tempDir, string $pythonPath): bool
     {
         // Find Python: explicit path > virtualenv search > system search
         $python = $this->resolvePython($pythonPath);

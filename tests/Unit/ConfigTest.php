@@ -7,6 +7,7 @@ use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\PoolingMode;
 use B7s\Neuraphp\Enums\Quantization;
 use B7s\Neuraphp\Exceptions\LibraryNotFoundException;
+use B7s\Neuraphp\ModelReference;
 
 describe('Config', function () {
     it('creates with sensible defaults', function () {
@@ -23,9 +24,9 @@ describe('Config', function () {
     it('returns immutable copies when using with* methods', function () {
         $original = new Config;
 
-        $withModel = $original->withModel(Model::default());
+        $withModel = $original->withModel(ModelReference::fromEnum(Model::default()));
         expect($original->model())->toBeNull()
-            ->and($withModel->model())->toBe(Model::AllMiniLML6V2);
+            ->and($withModel->model()->huggingFaceId())->toBe('sentence-transformers/all-MiniLM-L6-v2');
 
         $withQuantization = $original->withQuantization(Quantization::F16);
         expect($original->quantization())->toBe(Quantization::default())
@@ -49,11 +50,19 @@ describe('Config', function () {
             ->and($path)->toContain('ggml-model-q4_0.bin');
     });
 
-    it('resolves model path with explicit model', function () {
-        $config = (new Config)->withModel(Model::BgeBaseENV15);
+    it('resolves model path with explicit known model', function () {
+        $config = (new Config)->withModel(ModelReference::fromEnum(Model::BgeBaseENV15));
         $path = $config->resolveModelPath();
 
         expect($path)->toContain('bge-base-en-v1.5');
+    });
+
+    it('resolves model path with custom model via ModelReference', function () {
+        $config = (new Config)->withModel(ModelReference::fromId('custom-org/my-model'));
+        $path = $config->resolveModelPath();
+
+        expect($path)->toContain('my-model')
+            ->and($path)->toContain('ggml-model-q4_0.bin');
     });
 
     it('resolves model path with explicit override', function () {
@@ -93,6 +102,41 @@ describe('Config', function () {
             $config = Config::resolve($tmpFile);
             expect($config->threads())->toBe(8)
                 ->and($config->quantization())->toBe(Quantization::F16);
+        } finally {
+            @unlink($tmpFile);
+        }
+    });
+
+    it('resolves custom model from config file with dimensions', function () {
+        $tmpFile = sys_get_temp_dir().'/test_neuraphp_custom_model.php';
+        file_put_contents($tmpFile, '<?php return ["model" => "custom-org/my-model", "model_dimensions" => 768, "model_max_tokens" => 512];');
+
+        try {
+            $config = Config::resolve($tmpFile);
+            $model = $config->model();
+
+            expect($model)->not->toBeNull()
+                ->and($model->huggingFaceId())->toBe('custom-org/my-model')
+                ->and($model->dimensions())->toBe(768)
+                ->and($model->maxTokens())->toBe(512)
+                ->and($model->isKnown())->toBeFalse();
+        } finally {
+            @unlink($tmpFile);
+        }
+    });
+
+    it('resolves known model from config file via full HuggingFace ID', function () {
+        $tmpFile = sys_get_temp_dir().'/test_neuraphp_hf_id.php';
+        file_put_contents($tmpFile, '<?php return ["model" => "BAAI/bge-large-en-v1.5"];');
+
+        try {
+            $config = Config::resolve($tmpFile);
+            $model = $config->model();
+
+            expect($model)->not->toBeNull()
+                ->and($model->huggingFaceId())->toBe('BAAI/bge-large-en-v1.5')
+                ->and($model->dimensions())->toBe(1024)
+                ->and($model->isKnown())->toBeTrue();
         } finally {
             @unlink($tmpFile);
         }

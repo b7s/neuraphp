@@ -7,6 +7,7 @@ namespace B7s\Neuraphp\Console\Commands;
 use B7s\Neuraphp\Config;
 use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\Quantization;
+use B7s\Neuraphp\ModelReference;
 use B7s\Neuraphp\Neuraphp;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,7 +24,7 @@ final class InfoCommand extends Command
 {
     protected function configure(): void
     {
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name', Model::default()->value);
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model name (enum name or HuggingFace ID)', Model::default()->value);
         $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
         $this->addOption('library-path', null, InputOption::VALUE_OPTIONAL, 'Path to libbert_shared.so');
         $this->addOption('model-path', null, InputOption::VALUE_OPTIONAL, 'Path to model file');
@@ -35,7 +36,7 @@ final class InfoCommand extends Command
 
         /** @var string $modelValue */
         $modelValue = $input->getOption('model');
-        $model = Model::from($modelValue);
+        $model = ModelReference::parse($modelValue);
 
         /** @var string $quantizationValue */
         $quantizationValue = $input->getOption('quantization');
@@ -46,11 +47,12 @@ final class InfoCommand extends Command
         // Model info
         $io->section('Model Information');
         $io->definitionList(
-            ['Model' => $model->value],
-            ['Dimensions' => (string) $model->dimensions()],
-            ['Max Tokens' => (string) $model->maxTokens()],
+            ['Model' => $model->displayName()],
+            ['Dimensions' => $model->dimensions() !== null ? (string) $model->dimensions() : 'Unknown (custom model)'],
+            ['Max Tokens' => $model->maxTokens() !== null ? (string) $model->maxTokens() : 'Unknown (custom model)'],
             ['Quantization' => "{$quantization->value} ({$quantization->label()})"],
             ['Model File' => $model->filename($quantization)],
+            ['HuggingFace ID' => $model->huggingFaceId()],
         );
 
         // Config resolution

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace B7s\Neuraphp\Laravel;
 
 use B7s\Neuraphp\Config;
-use B7s\Neuraphp\Enums\Model;
 use B7s\Neuraphp\Enums\PoolingMode;
 use B7s\Neuraphp\Enums\Quantization;
+use B7s\Neuraphp\ModelReference;
 use B7s\Neuraphp\Neuraphp;
 use B7s\Neuraphp\NeuraphpService;
 use Illuminate\Support\ServiceProvider;
@@ -46,8 +46,10 @@ final class NeuraphpServiceProvider extends ServiceProvider
 
         $laravelConfig = $this->app->make('config')->get('neuraphp', []);
 
-        if (isset($laravelConfig['model']) && is_string($laravelConfig['model'])) {
-            $config = $config->withModel(Model::from($laravelConfig['model']));
+        $modelRef = ModelReference::parseFromConfig($laravelConfig);
+
+        if ($modelRef !== null) {
+            $config = $config->withModel($modelRef);
         }
 
         if (isset($laravelConfig['quantization']) && is_string($laravelConfig['quantization'])) {

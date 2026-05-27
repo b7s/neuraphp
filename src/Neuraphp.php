@@ -13,7 +13,7 @@ use Throwable;
 
 final class Neuraphp
 {
-    private ?Model $model = null;
+    private ?ModelReference $model = null;
 
     private ?Quantization $quantization = null;
 
@@ -46,7 +46,7 @@ final class Neuraphp
      * Set the model to use for embedding.
      * If not called, defaults to Model::default().
      */
-    public function model(Model $model): self
+    public function model(ModelReference $model): self
     {
         $this->model = $model;
 
@@ -129,7 +129,7 @@ final class Neuraphp
         }
 
         $service = $this->resolveService();
-        $resolvedModel = $this->model ?? Model::default();
+        $resolvedModel = $this->model ?? ModelReference::fromEnum(Model::default());
 
         $start = hrtime(true);
         $vector = $service->encode($text);
@@ -137,7 +137,7 @@ final class Neuraphp
 
         return NeuraphpResult::make(
             vector: $vector,
-            model: $resolvedModel->value,
+            model: $resolvedModel->huggingFaceId(),
             quantization: $this->quantization ?? Quantization::default(),
             duration: $duration,
         );
@@ -158,7 +158,7 @@ final class Neuraphp
         }
 
         $service = $this->resolveService();
-        $resolvedModel = $this->model ?? Model::default();
+        $resolvedModel = $this->model ?? ModelReference::fromEnum(Model::default());
         $resolvedQuantization = $this->quantization ?? Quantization::default();
 
         $start = hrtime(true);
@@ -170,7 +170,7 @@ final class Neuraphp
         return array_map(
             static fn (array $vector, int $i): NeuraphpResult => NeuraphpResult::make(
                 vector: $vector,
-                model: $resolvedModel->value,
+                model: $resolvedModel->huggingFaceId(),
                 quantization: $resolvedQuantization,
                 duration: $durationPerText,
             ),
@@ -204,10 +204,13 @@ final class Neuraphp
 
     /**
      * Get the number of dimensions for the configured model.
+     *
+     * Returns null for custom models where dimensions are not configured.
+     * In that case, dimensions are inferred from the first embedding result.
      */
-    public function dimension(): int
+    public function dimension(): ?int
     {
-        return ($this->model ?? Model::default())->dimensions();
+        return ($this->model ?? ModelReference::fromEnum(Model::default()))->dimensions();
     }
 
     /**

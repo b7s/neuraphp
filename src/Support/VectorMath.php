@@ -9,6 +9,21 @@ use InvalidArgumentException;
 final class VectorMath
 {
     /**
+     * Validate that two vectors have the same dimension.
+     *
+     * @param  float[]  $a
+     * @param  float[]  $b
+     */
+    private static function assertSameDimension(array $a, array $b): void
+    {
+        if (count($a) !== count($b)) {
+            throw new InvalidArgumentException(
+                sprintf('Vectors must have the same dimension. Got %d and %d.', count($a), count($b))
+            );
+        }
+    }
+
+    /**
      * Calculate the cosine similarity between two vectors.
      *
      * Returns a value between -1 and 1, where 1 means identical direction.
@@ -22,11 +37,7 @@ final class VectorMath
             throw new InvalidArgumentException('Vectors must not be empty.');
         }
 
-        if (count($a) !== count($b)) {
-            throw new InvalidArgumentException(
-                sprintf('Vectors must have the same dimension. Got %d and %d.', count($a), count($b))
-            );
-        }
+        self::assertSameDimension($a, $b);
 
         $dotProduct = self::dotProduct($a, $b);
         $magnitudeA = self::magnitude($a);
@@ -47,11 +58,7 @@ final class VectorMath
      */
     public static function dotProduct(array $a, array $b): float
     {
-        if (count($a) !== count($b)) {
-            throw new InvalidArgumentException(
-                sprintf('Vectors must have the same dimension. Got %d and %d.', count($a), count($b))
-            );
-        }
+        self::assertSameDimension($a, $b);
 
         $result = 0.0;
         $count = count($a);
@@ -71,11 +78,7 @@ final class VectorMath
      */
     public static function euclideanDistance(array $a, array $b): float
     {
-        if (count($a) !== count($b)) {
-            throw new InvalidArgumentException(
-                sprintf('Vectors must have the same dimension. Got %d and %d.', count($a), count($b))
-            );
-        }
+        self::assertSameDimension($a, $b);
 
         $sum = 0.0;
         $count = count($a);
