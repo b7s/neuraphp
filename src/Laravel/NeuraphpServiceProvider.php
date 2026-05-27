@@ -6,6 +6,7 @@ namespace B7s\Neuraphp\Laravel;
 
 use B7s\Neuraphp\Config;
 use B7s\Neuraphp\Enums\Model;
+use B7s\Neuraphp\Enums\PoolingMode;
 use B7s\Neuraphp\Enums\Quantization;
 use B7s\Neuraphp\Neuraphp;
 use B7s\Neuraphp\NeuraphpService;
@@ -55,6 +56,10 @@ final class NeuraphpServiceProvider extends ServiceProvider
 
         if (isset($laravelConfig['threads']) && is_int($laravelConfig['threads'])) {
             $config = $config->withThreads($laravelConfig['threads']);
+        }
+
+        if (isset($laravelConfig['pooling_mode']) && is_string($laravelConfig['pooling_mode'])) {
+            $config = $config->withPoolingMode(PoolingMode::from($laravelConfig['pooling_mode']));
         }
 
         if (isset($laravelConfig['model_path']) && is_string($laravelConfig['model_path'])) {

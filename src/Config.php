@@ -265,6 +265,12 @@ final class Config
             return [];
         }
 
+        $needsEnvPolyfill = ! function_exists('env');
+
+        if ($needsEnvPolyfill) {
+            eval('function env(string $key, mixed $default = null): mixed { $value = getenv($key); if ($value !== false) { return $value; } return $_ENV[$key] ?? $default; }');
+        }
+
         /** @var array<string, mixed> $config */
         $config = require $path;
 

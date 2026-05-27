@@ -37,11 +37,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Model Path (optional)
+    | Pooling Mode
+    |--------------------------------------------------------------------------
+    |
+    | How to pool token embeddings into a single vector.
+    | Options: mean, cls, last
+    |
+    */
+    'pooling_mode' => env('NEURAPHP_POOLING_MODE', 'mean'),
+
+    /*
+|--------------------------------------------------------------------------
+| Model Path (optional)
     |--------------------------------------------------------------------------
     |
     | Override the default model file path. If not set, the package will
-    | look for models in the models/ directory relative to the package root.
+    | look for models in bin/neuraphp/models/ relative to the project root.
     |
     */
     'model_path' => env('NEURAPHP_MODEL_PATH'),
@@ -52,7 +63,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Override the default library path for libbert_shared.so.
-    | If not set, the package will search common locations.
+    | If not set, the package will search bin/neuraphp/lib/ and system paths.
     |
     */
     'library_path' => env('NEURAPHP_LIBRARY_PATH'),
