@@ -1,9 +1,13 @@
-# Neuraphp
+<div align="center">
+   <img src="docs/logo.png" width="222" alt="NeuraPHP">
+
+   # NeuraPHP
 
 Local text embeddings via PHP FFI, powered by embedding.cpp. No Python, no API calls, no external services at runtime.
 
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+</div>
 
 ## Features
 
@@ -390,3 +394,8 @@ composer check
 ## License
 
 MIT
+
+---
+
+Logo by: 
+<a href="https://www.flaticon.com/free-icons/neuro" title="neuro icons">Neuro icons created by Uniconlabs - Flaticon</a>
