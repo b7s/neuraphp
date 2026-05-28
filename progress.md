@@ -14,7 +14,7 @@ A standalone PHP package providing local text embeddings via PHP FFI, powered by
 
 ```
 neuraphp/
-├── bin/neuraphp                     # CLI entrypoint (doctor, info)
+├── bin/neuraphp/cli # CLI entrypoint (doctor, info)
 ├── src/
 │   ├── Neuraphp.php                 # Main fluent builder (terminal: embed())
 │   ├── Config.php                   # Config loader (cascading: explicit → project → package → defaults)
@@ -277,7 +277,7 @@ $result = NeuraphpFacade::embed('Hello');
 
 ### Phase 8: CLI Commands
 
-- [x] **8.1** Create `bin/neuraphp` — CLI entrypoint
+- [x] **8.1** Create `bin/neuraphp/cli` — CLI entrypoint
 - [x] **8.2** Create `src/Console/Application.php`
 - [x] **8.3** Create `src/Console/Commands/DoctorCommand.php`
   - Check PHP FFI extension loaded

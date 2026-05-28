@@ -28,10 +28,13 @@ final class InstallCommand extends Command
 {
     private string $projectRoot;
 
+    private PrerequisiteValidator $validator;
+
     public function __construct()
     {
         parent::__construct();
         $this->projectRoot = Config::resolveProjectRoot();
+        $this->validator = new PrerequisiteValidator;
     }
 
     protected function configure(): void
@@ -75,13 +78,11 @@ final class InstallCommand extends Command
         /** @var string $pythonPath */
         $pythonPath = $input->getOption('python-path');
 
-        // Create a temp directory for all build/download operations
         $tempDir = $this->createTempDir();
 
         $hasErrors = false;
 
         try {
-            // Step 1: Install library
             if (! $skipLibrary) {
                 if (! $this->installLibrary($io, $force, $tempDir)) {
                     $hasErrors = true;
@@ -92,21 +93,17 @@ final class InstallCommand extends Command
                 $io->note('Skipping library installation (--skip-library).');
             }
 
-            // Step 2: Download and convert model
             if (! $skipModel) {
                 if (! $this->installModel($io, $model, $quantization, $force, $tempDir, $keepSource, $pythonPath)) {
                     $hasErrors = true;
                 }
             }
         } finally {
-            // Always clean up the temp directory
             $this->removeDir($tempDir);
         }
 
-        // Ensure .gitignore exists so installed artifacts are not committed
         $this->ensureGitignore();
 
-        // Summary
         $io->section('Summary');
         if ($hasErrors) {
             $io->warning('Some steps failed. See the messages above for details.');
@@ -124,21 +121,19 @@ final class InstallCommand extends Command
     {
         $io->section('Step 1: Installing embedding.cpp library');
 
-        $libDir = $this->projectRoot.'/bin/neuraphp/lib';
+        $libDir = $this->projectRoot.'/bin/neuraphp/data/lib';
         $soPath = $libDir.'/libbert_shared.so';
 
-        // Check if already installed
         if (! $force && file_exists($soPath)) {
             $io->success("Library already installed at: {$soPath}");
 
             return true;
         }
 
-        if (! $this->validateLibraryPrerequisites($io)) {
+        if (! $this->validator->validateLibraryPrerequisites($io)) {
             return false;
         }
 
-        // Clone embedding.cpp into temp directory
         $sourceDir = $tempDir.'/embedding-cpp';
 
         $io->text('Cloning embedding.cpp repository...');
@@ -154,13 +149,9 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Patch Rust source to fix implicit autoref on dereferenced raw pointers
         $this->patchRustSource($sourceDir.'/tokenizers-cpp/rust/src/lib.rs');
-
-        // Patch C++ source to add missing includes
         $this->patchCppSource($sourceDir.'/bert.cpp');
 
-        // Build libbert_shared.so
         $io->text('Compiling libbert_shared.so...');
         $buildPath = $sourceDir.'/build';
 
@@ -189,7 +180,6 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Find the compiled library
         $compiledLib = $this->findCompiledLibrary($buildPath);
 
         if ($compiledLib === null) {
@@ -198,7 +188,6 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Copy to project lib directory
         if (! is_dir($libDir) && ! mkdir($libDir, 0755, true) && ! is_dir($libDir)) {
             throw new RuntimeException(sprintf('Directory "%s" was not created', $libDir));
         }
@@ -219,17 +208,16 @@ final class InstallCommand extends Command
     {
         $io->section('Step 2: Downloading model');
 
-        $modelDir = $this->projectRoot.'/bin/neuraphp/models/'.$model->directoryName();
+        $modelDir = $this->projectRoot.'/bin/neuraphp/data/models/'.$model->directoryName();
         $modelFile = $modelDir.'/'.$model->filename($quantization);
 
-        // Check if already downloaded
         if (! $force && file_exists($modelFile)) {
             $io->success("Model already installed at: {$modelFile}");
 
             return true;
         }
 
-        if (! $this->validateModelPrerequisites($io)) {
+        if (! $this->validator->validateModelPrerequisites($io)) {
             return false;
         }
 
@@ -237,7 +225,6 @@ final class InstallCommand extends Command
             $io->note("Custom model: {$model->huggingFaceId()}. Ensure this is a BERT-architecture model compatible with embedding.cpp.");
         }
 
-        // Download model from HuggingFace into temp directory
         $huggingFaceUrl = "https://huggingface.co/{$model->huggingFaceId()}";
         $sourceDir = $tempDir.'/'.$model->directoryName();
 
@@ -257,7 +244,6 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Try to convert the model
         $io->text('Converting model to GGUF format...');
 
         $converted = $this->convertModel($io, $sourceDir, $modelDir, $model, $quantization, $tempDir, $pythonPath);
@@ -292,7 +278,6 @@ final class InstallCommand extends Command
 
         $io->success("Model installed at: {$modelFile}");
 
-        // Clean up intermediate files to free disk space
         if (! $keepSource) {
             $this->removeDir($sourceDir);
             $io->text('Cleaned up model source files to free disk space.');
@@ -306,8 +291,7 @@ final class InstallCommand extends Command
 
     private function convertModel(SymfonyStyle $io, string $sourceDir, string $modelDir, ModelReference $model, Quantization $quantization, string $tempDir, string $pythonPath): bool
     {
-        // Find Python: explicit path > virtualenv search > system search
-        $python = $this->resolvePython($pythonPath);
+        $python = $this->validator->resolvePython($pythonPath);
 
         if ($python === null) {
             $io->text('Python not found. Cannot convert model automatically.');
@@ -343,7 +327,6 @@ final class InstallCommand extends Command
 
         $isGguf = str_ends_with($convertScript, 'convert-to-gguf.py');
 
-        // Check required Python packages
         $requiredImports = $isGguf
             ? 'import torch, numpy, transformers, gguf, sentencepiece'
             : 'import torch, numpy, transformers';
@@ -355,7 +338,6 @@ final class InstallCommand extends Command
         );
 
         if ($packageCheck !== 0) {
-            // Try to auto-install dependencies if Python is in a virtualenv
             if ($this->isVirtualenvPython($python)) {
                 $io->text('Python dependencies missing. Attempting to install into virtualenv...');
                 $installed = $this->installPythonDeps($io, $python, dirname($convertScript), $isGguf);
@@ -377,10 +359,8 @@ final class InstallCommand extends Command
             }
         }
 
-        // Try to run conversion for f16 first (needed for quantization)
         $io->text('Running model conversion (this requires Python + torch + transformers)...');
 
-        // Convert to f16
         $f16Result = $this->runCommand(
             [$python, $convertScript, $sourceDir.'/', '1'],
             dirname($convertScript),
@@ -392,7 +372,6 @@ final class InstallCommand extends Command
             return false;
         }
 
-        // Check if quantize binary exists
         $quantizeBin = $embeddingCppDir.'/build/bin/quantize';
 
         if ($quantization !== Quantization::F16 && $quantization !== Quantization::F32 && file_exists($quantizeBin)) {
@@ -428,7 +407,6 @@ final class InstallCommand extends Command
                 if ($quantizeResult !== 0) {
                     $io->text('Quantization failed. The f16 model may still be usable.');
 
-                    // Try to use f16 as fallback (prefer .gguf, then .bin)
                     $f16Fallback = null;
                     foreach ([$modelDir.'/ggml-model-f16.gguf', $modelDir.'/ggml-model-f16.bin'] as $candidate) {
                         if (file_exists($candidate)) {
@@ -448,7 +426,6 @@ final class InstallCommand extends Command
             }
         }
 
-        // Copy converted files to model directory
         $this->copyConvertedFiles($sourceDir, $modelDir);
 
         $expectedFile = $modelDir.'/'.$model->filename($quantization);
@@ -457,8 +434,6 @@ final class InstallCommand extends Command
             return true;
         }
 
-        // Fallback: if quantization was skipped (quantize binary missing),
-        // accept the f16 file as a valid fallback
         $f16File = null;
 
         foreach (['ggml-model-f16.gguf', 'ggml-model-f16.bin'] as $candidate) {
@@ -484,190 +459,6 @@ final class InstallCommand extends Command
         return false;
     }
 
-    private function validateLibraryPrerequisites(SymfonyStyle $io): bool
-    {
-        $io->text('Checking prerequisites...');
-
-        $checks = [
-            [
-                'name' => 'git',
-                'min' => '2.0',
-                'versionFlag' => '--version',
-                'versionPattern' => '/git version (\d+\.\d+\.\d+)/',
-                'installHint' => 'Install git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git',
-            ],
-            [
-                'name' => 'cmake',
-                'min' => '3.12',
-                'versionFlag' => '--version',
-                'versionPattern' => '/cmake version (\d+\.\d+\.\d+)/',
-                'installHint' => 'Install cmake: https://cmake.org/install/',
-            ],
-            [
-                'name' => 'make',
-                'min' => '3.81',
-                'versionFlag' => '--version',
-                'versionPattern' => '/GNU Make (\d+\.\d+)/',
-                'installHint' => 'Install make: sudo apt install build-essential (Ubuntu) or xcode-select --install (macOS)',
-            ],
-            [
-                'name' => 'cargo',
-                'min' => '1.79',
-                'versionFlag' => '--version',
-                'versionPattern' => '/cargo (\d+\.\d+\.\d+)/',
-                'installHint' => 'Install Rust: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh',
-                'label' => 'Rust (cargo)',
-            ],
-            [
-                'name' => 'g++',
-                'min' => '10',
-                'versionFlag' => '--version',
-                'versionPattern' => '/(\d+)\.\d+\.\d+/',
-                'installHint' => 'Install GCC 10+: sudo apt install g++-10 (Ubuntu) or brew install gcc (macOS)',
-                'label' => 'C++ compiler (g++/clang++)',
-                'alternatives' => ['clang++'],
-            ],
-        ];
-
-        $allPassed = true;
-
-        foreach ($checks as $check) {
-            $label = $check['label'] ?? $check['name'];
-
-            $path = $this->findExecutable($check['name']);
-
-            if ($path === null && isset($check['alternatives'])) {
-                foreach ($check['alternatives'] as $alt) {
-                    $path = $this->findExecutable($alt);
-                    if ($path !== null) {
-                        break;
-                    }
-                }
-            }
-
-            if ($path === null) {
-                $io->error("  ✗ {$label}: not found");
-                $io->text("    → {$check['installHint']}");
-                $allPassed = false;
-
-                continue;
-            }
-
-            $version = $this->getToolVersion($path, $check['versionFlag'], $check['versionPattern']);
-
-            if ($version === null) {
-                $io->text("  ⚠ {$label}: {$path} (version unknown, minimum {$check['min']})");
-
-                continue;
-            }
-
-            if ($this->compareVersion($version, $check['min']) < 0) {
-                $io->error("  ✗ {$label}: {$path} (v{$version}, minimum v{$check['min']})");
-                $io->text("    → {$check['installHint']}");
-                $allPassed = false;
-
-                continue;
-            }
-
-            $io->text("  ✓ {$label}: {$path} (v{$version})");
-        }
-
-        return $allPassed;
-    }
-
-    private function validateModelPrerequisites(SymfonyStyle $io): bool
-    {
-        $io->text('Checking prerequisites...');
-
-        $checks = [
-            [
-                'name' => 'git',
-                'min' => '2.0',
-                'versionFlag' => '--version',
-                'versionPattern' => '/git version (\d+\.\d+\.\d+)/',
-                'installHint' => 'Install git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git',
-            ],
-            [
-                'name' => 'git-lfs',
-                'min' => '2.0',
-                'versionFlag' => 'version',
-                'versionPattern' => '/git-lfs\/(\d+\.\d+\.\d+)/',
-                'installHint' => 'Install git-lfs: sudo apt install git-lfs (Ubuntu) or brew install git-lfs (macOS), then git lfs install',
-            ],
-        ];
-
-        $allPassed = true;
-
-        foreach ($checks as $check) {
-            $path = $this->findExecutable($check['name']);
-
-            if ($path === null) {
-                $io->error("  ✗ {$check['name']}: not found");
-                $io->text("    → {$check['installHint']}");
-                $allPassed = false;
-
-                continue;
-            }
-
-            $version = $this->getToolVersion($path, $check['versionFlag'], $check['versionPattern']);
-
-            if ($version === null) {
-                $io->text("  ⚠ {$check['name']}: {$path} (version unknown, minimum {$check['min']})");
-
-                continue;
-            }
-
-            if ($this->compareVersion($version, $check['min']) < 0) {
-                $io->error("  ✗ {$check['name']}: {$path} (v{$version}, minimum v{$check['min']})");
-                $io->text("    → {$check['installHint']}");
-                $allPassed = false;
-
-                continue;
-            }
-
-            $io->text("  ✓ {$check['name']}: {$path} (v{$version})");
-        }
-
-        return $allPassed;
-    }
-
-    private function getToolVersion(string $path, string $versionFlag, string $pattern): ?string
-    {
-        $output = shell_exec(escapeshellarg($path).' '.escapeshellarg($versionFlag).' 2>/dev/null');
-
-        if (! is_string($output) || trim($output) === '') {
-            return null;
-        }
-
-        if (preg_match($pattern, $output, $matches) !== 1) {
-            return null;
-        }
-
-        return $matches[1];
-    }
-
-    private function compareVersion(string $actual, string $required): int
-    {
-        $actualParts = array_map('intval', explode('.', $actual));
-        $requiredParts = array_map('intval', explode('.', $required));
-
-        $maxParts = max(count($actualParts), count($requiredParts));
-
-        $actualParts = array_pad($actualParts, $maxParts, 0);
-        $requiredParts = array_pad($requiredParts, $maxParts, 0);
-
-        for ($i = 0; $i < $maxParts; $i++) {
-            if ($actualParts[$i] < $requiredParts[$i]) {
-                return -1;
-            }
-            if ($actualParts[$i] > $requiredParts[$i]) {
-                return 1;
-            }
-        }
-
-        return 0;
-    }
-
     private function ensureEmbeddingCppSource(SymfonyStyle $io, string $tempDir): ?string
     {
         $embeddingCppDir = $tempDir.'/embedding-cpp';
@@ -676,7 +467,7 @@ final class InstallCommand extends Command
             return $embeddingCppDir;
         }
 
-        $git = $this->findExecutable('git');
+        $git = $this->validator->findExecutable('git');
 
         if ($git === null) {
             $io->error("'git' is required to clone embedding.cpp for model conversion. Install git and try again.");
@@ -702,13 +493,6 @@ final class InstallCommand extends Command
         return $embeddingCppDir;
     }
 
-    /**
-     * Patch the tokenizers-cpp Rust source to fix implicit autoref on dereferenced raw pointers.
-     *
-     * Rust 2024 edition makes implicit autorefs on dereferenced raw pointers a hard error.
-     * This method applies the fix: `(*handle).field.method()` → `(&(*handle).field).method()`
-     * and `(*handle).field.as_mut_ptr()` → `(&mut (*handle).field).as_mut_ptr()`.
-     */
     private function patchRustSource(string $filePath): void
     {
         if (! file_exists($filePath)) {
@@ -721,63 +505,17 @@ final class InstallCommand extends Command
             return;
         }
 
-        // Fix implicit autoref on .len() calls (shared reference)
-        // (*handle).encode_ids.len() → (&(*handle).encode_ids).len()
-        // (*handle).decode_str.len() → (& (*handle).decode_str).len()
         $content = preg_replace(
             '/\(\*handle\)\.(\w+)\.len\(\)/',
             '(&(*handle).$1).len()',
             $content,
         ) ?? $content;
 
-        // Fix implicit autoref on .as_mut_ptr() calls (mutable reference)
-        // (*handle).encode_ids.as_mut_ptr() → (&mut (*handle).encode_ids).as_mut_ptr()
-        // (*handle).decode_str.as_mut_ptr() → (&mut (*handle).decode_str).as_mut_ptr()
         $content = preg_replace(
             '/\(\*handle\)\.(\w+)\.as_mut_ptr\(\)/',
             '(&mut (*handle).$1).as_mut_ptr()',
             $content,
         ) ?? $content;
-
-        file_put_contents($filePath, $content);
-    }
-
-    /**
-     * Patch bert.cpp to add missing C++ standard library includes.
-     *
-     * The embedding.cpp repo is missing #include <unordered_map>, <array>, and <mutex>
-     * which causes compilation errors with modern GCC.
-     */
-    private function patchCppSource(string $filePath): void
-    {
-        if (! file_exists($filePath)) {
-            return;
-        }
-
-        $content = file_get_contents($filePath);
-
-        if (! is_string($content)) {
-            return;
-        }
-
-        $missingIncludes = [
-            '#include <unordered_map>',
-            '#include <array>',
-            '#include <mutex>',
-        ];
-
-        $insertAfter = '#include "tokenizer.h"';
-        $patch = '';
-
-        foreach ($missingIncludes as $include) {
-            if (! str_contains($content, $include)) {
-                $patch .= $include."\n";
-            }
-        }
-
-        if ($patch !== '') {
-            $content = str_replace($insertAfter, $insertAfter."\n".$patch, $content);
-        }
 
         file_put_contents($filePath, $content);
     }
@@ -811,7 +549,6 @@ final class InstallCommand extends Command
 
     private function findCompiledLibrary(string $buildDir): ?string
     {
-        // Search common locations for the compiled shared library
         $searchPaths = [
             $buildDir.'/libbert_shared.so',
             $buildDir.'/libbert.so',
@@ -824,7 +561,6 @@ final class InstallCommand extends Command
             }
         }
 
-        // Search recursively for any .so file
         $soFiles = glob($buildDir.'/**/*.so', GLOB_BRACE);
 
         if ($soFiles !== false && $soFiles !== []) {
@@ -842,7 +578,7 @@ final class InstallCommand extends Command
 
     private function ensureGitignore(): void
     {
-        $gitignoreDir = $this->projectRoot.'/bin/neuraphp';
+        $gitignoreDir = $this->projectRoot.'/bin/neuraphp/data';
 
         if (! is_dir($gitignoreDir) && ! mkdir($gitignoreDir, 0755, true) && ! is_dir($gitignoreDir)) {
             return;
@@ -896,146 +632,19 @@ final class InstallCommand extends Command
         rmdir($dir);
     }
 
-    private function findExecutable(string $name): ?string
-    {
-        // 1. Check common virtualenv locations (project-local and home)
-        $homeDir = is_string($_SERVER['HOME'] ?? null) ? $_SERVER['HOME'] : '';
-        $projectVenvs = [
-            getcwd().'/.venv/bin/'.$name,
-            getcwd().'/venv/bin/'.$name,
-            getcwd().'/env/bin/'.$name,
-        ];
-        $homeVenvs = [];
-
-        if ($homeDir !== '') {
-            $homeVenvs = [
-                $homeDir.'/.venv/bin/'.$name,
-                $homeDir.'/venv/bin/'.$name,
-                $homeDir.'/env/bin/'.$name,
-                $homeDir.'/myenv/bin/'.$name,
-            ];
-        }
-
-        // Also scan common virtualenv names in home directory
-        if ($homeDir !== '' && is_dir($homeDir)) {
-            $homeVenvs = array_merge($homeVenvs, $this->findVirtualenvBinaries($homeDir, $name));
-        }
-
-        $allPaths = array_merge($projectVenvs, $homeVenvs);
-
-        foreach ($allPaths as $path) {
-            $expanded = $this->expandTilde($path);
-            if (file_exists($expanded) && is_executable($expanded)) {
-                return $expanded;
-            }
-        }
-
-        // 2. Check standard system paths + user-local tool directories
-        $systemPaths = [
-            '/usr/bin/'.$name,
-            '/usr/local/bin/'.$name,
-            '/opt/homebrew/bin/'.$name,
-        ];
-
-        if ($homeDir !== '') {
-            $systemPaths[] = $homeDir.'/.cargo/bin/'.$name;
-            $systemPaths[] = $homeDir.'/.local/bin/'.$name;
-        }
-
-        foreach ($systemPaths as $path) {
-            if (file_exists($path) && is_executable($path)) {
-                return $path;
-            }
-        }
-
-        // 3. Try which command
-        $result = shell_exec("which {$name} 2>/dev/null");
-
-        if (is_string($result) && trim($result) !== '') {
-            return trim($result);
-        }
-
-        return null;
-    }
-
-    /**
-     * Find Python binaries in virtualenv directories under the given base directory.
-     *
-     * @return list<string>
-     */
-    private function findVirtualenvBinaries(string $baseDir, string $name): array
-    {
-        $results = [];
-        $candidates = ['myenv', '.venv', 'venv', 'env', '.virtualenvs'];
-
-        foreach ($candidates as $candidate) {
-            $binPath = $baseDir.'/'.$candidate.'/bin/'.$name;
-            if (file_exists($binPath) && is_executable($binPath)) {
-                $results[] = $binPath;
-            }
-        }
-
-        // Also check ~/.virtualenvs/ directory (common pipenv/pyenv pattern)
-        $virtualenvsDir = $baseDir.'/.virtualenvs';
-        if (is_dir($virtualenvsDir)) {
-            $entries = scandir($virtualenvsDir);
-            if ($entries !== false) {
-                foreach ($entries as $entry) {
-                    if ($entry === '.' || $entry === '..') {
-                        continue;
-                    }
-                    $binPath = $virtualenvsDir.'/'.$entry.'/bin/'.$name;
-                    if (file_exists($binPath) && is_executable($binPath)) {
-                        $results[] = $binPath;
-                    }
-                }
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * Resolve the Python executable path from explicit option, virtualenv search, or system search.
-     */
-    private function resolvePython(string $explicitPath): ?string
-    {
-        // 1. Explicit path provided via --python-path
-        if ($explicitPath !== '') {
-            $expanded = $this->expandTilde($explicitPath);
-
-            if (file_exists($expanded) && is_executable($expanded)) {
-                return $expanded;
-            }
-
-            // Not found — report clearly
-            return null;
-        }
-
-        // 2. Search virtualenvs and system paths
-        return $this->findExecutable('python3') ?? $this->findExecutable('python');
-    }
-
-    /**
-     * Check if a Python executable is inside a virtualenv.
-     */
     private function isVirtualenvPython(string $pythonPath): bool
     {
-        // Virtualenv Python binaries have a pyvenv.cfg in their parent directory
         $binDir = dirname($pythonPath);
         $venvRoot = dirname($binDir);
 
-        // Check for pyvenv.cfg (standard virtualenv marker)
         if (file_exists($venvRoot.'/pyvenv.cfg')) {
             return true;
         }
 
-        // Check for conda-style environments
         if (file_exists($venvRoot.'/conda-meta')) {
             return true;
         }
 
-        // Check if the Python path contains typical virtualenv directory names
         $normalizedPath = str_replace('\\', '/', $pythonPath);
 
         return str_contains($normalizedPath, '/.venv/') ||
@@ -1045,9 +654,6 @@ final class InstallCommand extends Command
             str_contains($normalizedPath, '/.virtualenvs/');
     }
 
-    /**
-     * Attempt to install Python dependencies into a virtualenv.
-     */
     private function installPythonDeps(SymfonyStyle $io, string $pythonPath, string $workingDir, bool $ggufMode = false): bool
     {
         $packages = ['torch', 'numpy', 'transformers'];
@@ -1059,7 +665,6 @@ final class InstallCommand extends Command
 
         $io->text('Installing '.implode(', ', $packages).'...');
 
-        // Find pip alongside the Python executable
         $binDir = dirname($pythonPath);
         $pipPath = $binDir.'/pip3';
 
@@ -1068,7 +673,6 @@ final class InstallCommand extends Command
         }
 
         if (! file_exists($pipPath) || ! is_executable($pipPath)) {
-            // Fall back to using the Python executable with -m pip
             $io->text('pip not found alongside Python, using python -m pip...');
 
             $result = $this->runCommand(
@@ -1090,7 +694,6 @@ final class InstallCommand extends Command
             }
         }
 
-        // Verify installation
         $io->text('Verifying Python dependencies...');
         $verifyImports = $ggufMode
             ? 'import torch, numpy, transformers, gguf, sentencepiece'
@@ -1113,17 +716,43 @@ final class InstallCommand extends Command
     }
 
     /**
-     * Expand ~ to the user's home directory in a file path.
+     * Patch bert.cpp to add missing C++ standard library includes.
+     *
+     * The embedding.cpp repo is missing #include <unordered_map>, <array>, and <mutex>
+     * which causes compilation errors with modern GCC.
      */
-    private function expandTilde(string $path): string
+    private function patchCppSource(string $filePath): void
     {
-        $homeDir = is_string($_SERVER['HOME'] ?? null) ? $_SERVER['HOME'] : '';
-
-        if ($homeDir !== '' && str_starts_with($path, '~/')) {
-            return $homeDir.'/'.substr($path, 2);
+        if (! file_exists($filePath)) {
+            return;
         }
 
-        return $path;
+        $content = file_get_contents($filePath);
+
+        if (! is_string($content)) {
+            return;
+        }
+
+        $missingIncludes = [
+            '#include <unordered_map>',
+            '#include <array>',
+            '#include <mutex>',
+        ];
+
+        $insertAfter = '#include "tokenizer.h"';
+        $patch = '';
+
+        foreach ($missingIncludes as $include) {
+            if (! str_contains($content, $include)) {
+                $patch .= $include."\n";
+            }
+        }
+
+        if ($patch !== '') {
+            $content = str_replace($insertAfter, $insertAfter."\n".$patch, $content);
+        }
+
+        file_put_contents($filePath, $content);
     }
 
     /**

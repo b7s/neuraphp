@@ -86,8 +86,8 @@ This will:
 2. **Clone embedding.cpp** into a temp directory and compile `libbert_shared.so`
 3. **Download the default model** (all-MiniLM-L6-v2) from HuggingFace
 4. **Convert the model** to GGUF format (requires Python 3.8+, torch, transformers)
-5. **Copy only final artifacts** to `bin/neuraphp/` in your project root
-   - **Clean up** temp files and create `bin/neuraphp/.gitignore` so artifacts are never committed
+5. **Copy only final artifacts** to `bin/neuraphp/data/` in your project root
+   - **Clean up** temp files and create `bin/neuraphp/data/.gitignore` so artifacts are never committed
 
 **Options:**
 

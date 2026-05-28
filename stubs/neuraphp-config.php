@@ -79,7 +79,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Override the default model file path. If not set, the package will
-    | look for models in bin/neuraphp/models/ relative to the project root.
+    | look for models in bin/neuraphp/data/models/ relative to the project root.
     |
     */
     'model_path' => null,
@@ -90,7 +90,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Override the default library path for libbert_shared.so.
-    | If not set, the package will search bin/neuraphp/lib/ and system paths.
+    | If not set, the package will search bin/neuraphp/data/lib/ and system paths.
     |
     */
     'library_path' => null,

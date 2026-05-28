@@ -33,7 +33,7 @@
         }
     },
     "bin": [
-        "bin/neuraphp"
+        "bin/neuraphp/cli"
     ],
     "scripts": {
         "pint": "vendor/bin/pint --dirty",

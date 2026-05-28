@@ -187,7 +187,7 @@ final class Config
 
         $model = $this->model ?? ModelReference::fromEnum(Model::default());
 
-        $baseDir = self::resolveProjectRoot().'/bin/neuraphp/models/'.$model->directoryName().'/';
+        $baseDir = self::resolveProjectRoot().'/bin/neuraphp/data/models/'.$model->directoryName().'/';
 
         $ggufPath = $baseDir.$model->filename($this->quantization);
 
@@ -222,7 +222,7 @@ final class Config
         }
 
         $searchPaths = [
-            self::resolveProjectRoot().'/bin/neuraphp/lib/libbert_shared.so',
+            self::resolveProjectRoot().'/bin/neuraphp/data/lib/libbert_shared.so',
             '/usr/local/lib/libbert_shared.so',
             '/usr/lib/libbert_shared.so',
         ];

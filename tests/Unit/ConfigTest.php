@@ -73,7 +73,7 @@ describe('Config', function () {
     });
 
     it('throws when library not found', function () {
-        $config = new Config;
+        $config = (new Config)->withLibraryPath(sys_get_temp_dir().'/nonexistent_libbert_shared.so');
         $config->resolveLibraryPath();
     })->throws(LibraryNotFoundException::class);
 
