@@ -53,7 +53,15 @@ $similarity = Neuraphp::make()
 
 ## ⚠️ Prerequisites: embedding.cpp Library & Model
 
-**Neuraphp requires `libbert_shared.so` (compiled from embedding.cpp) and a GGUF model file to function.** There are two ways to set these up:
+> **Neuraphp requires `libbert_shared.so` (compiled from embedding.cpp) and a GGUF model file to function.**
+> 
+> To do so, we need:
+> - Rust 1.79+
+> - CMake 3.22+
+> 
+> to compile the library
+
+There are two ways to set these up:
 
 ---
 
@@ -71,7 +79,7 @@ This will:
 1. **Check prerequisites** (git, cmake, make, C++ compiler, Rust, git-lfs)
 2. **Clone embedding.cpp** into a temp directory and compile `libbert_shared.so`
 3. **Download the default model** (all-MiniLM-L6-v2) from HuggingFace
-4. **Convert the model** to GGUF format (requires Python + torch + transformers)
+4. **Convert the model** to GGUF format (requires Python 3.8+, torch, transformers)
 5. **Copy only final artifacts** to `bin/neuraphp/` in your project root
    - **Clean up** temp files and create `bin/neuraphp/.gitignore` so artifacts are never committed
 
