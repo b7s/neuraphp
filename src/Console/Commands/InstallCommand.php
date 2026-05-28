@@ -28,16 +28,22 @@ final class InstallCommand extends Command
 {
     private string $projectRoot;
 
+    private Config $resolvedConfig;
+
     public function __construct()
     {
         parent::__construct();
         $this->projectRoot = Config::resolveProjectRoot();
+        $this->resolvedConfig = Config::resolve();
     }
 
     protected function configure(): void
     {
-        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download (enum name or HuggingFace ID like BAAI/bge-large-en-v1.5)', Model::default()->value);
-        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', Quantization::default()->value);
+        $defaultModel = $this->resolvedConfig->model()?->huggingFaceId() ?? Model::default()->value;
+        $defaultQuantization = $this->resolvedConfig->quantization()->value;
+
+        $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download (enum name or HuggingFace ID like BAAI/bge-large-en-v1.5)', $defaultModel);
+        $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', $defaultQuantization);
         $this->addOption('skip-library', null, InputOption::VALUE_NONE, 'Skip library compilation');
         $this->addOption('skip-model', null, InputOption::VALUE_NONE, 'Skip model download');
         $this->addOption('force', null, InputOption::VALUE_NONE, 'Force re-download/re-compile even if files exist');
