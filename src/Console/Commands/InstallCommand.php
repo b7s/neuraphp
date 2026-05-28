@@ -81,6 +81,8 @@ final class InstallCommand extends Command
             if (! $skipLibrary) {
                 if (! $this->installLibrary($io, $force, $tempDir)) {
                     $hasErrors = true;
+                    $io->note('Skipping model installation because library installation failed.');
+                    $skipModel = true;
                 }
             } else {
                 $io->note('Skipping library installation (--skip-library).');
@@ -91,8 +93,6 @@ final class InstallCommand extends Command
                 if (! $this->installModel($io, $model, $quantization, $force, $tempDir, $keepSource, $pythonPath)) {
                     $hasErrors = true;
                 }
-            } else {
-                $io->note('Skipping model installation (--skip-model).');
             }
         } finally {
             // Always clean up the temp directory
@@ -765,12 +765,17 @@ final class InstallCommand extends Command
             }
         }
 
-        // 2. Check standard system paths
+        // 2. Check standard system paths + user-local tool directories
         $systemPaths = [
             '/usr/bin/'.$name,
             '/usr/local/bin/'.$name,
             '/opt/homebrew/bin/'.$name,
         ];
+
+        if ($homeDir !== '') {
+            $systemPaths[] = $homeDir.'/.cargo/bin/'.$name;
+            $systemPaths[] = $homeDir.'/.local/bin/'.$name;
+        }
 
         foreach ($systemPaths as $path) {
             if (file_exists($path) && is_executable($path)) {
