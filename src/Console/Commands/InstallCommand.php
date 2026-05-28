@@ -255,12 +255,12 @@ final class InstallCommand extends Command
             $io->text('<comment>Option 1: Use a virtualenv with --python-path</comment>');
             $io->text('  python3 -m venv ~/myenv');
             $io->text('  source ~/myenv/bin/activate');
-            $io->text('  pip install torch numpy transformers');
+            $io->text('  pip install torch numpy transformers "gguf>=0.19.0" sentencepiece');
             $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
             $io->text('');
             $io->text('<comment>Option 2: Manual conversion</comment>');
             $io->text('  1. Install Python 3.8+ and pip');
-            $io->text('  2. Install requirements: pip install torch numpy transformers');
+            $io->text('  2. Install requirements: pip install torch numpy transformers "gguf>=0.19.0" sentencepiece');
             $io->text('  3. Convert the model using embedding.cpp/models/convert-to-gguf.py');
             $io->text('');
             $io->text('  Then copy the converted model file to:');
@@ -299,7 +299,7 @@ final class InstallCommand extends Command
             $io->text('<comment>Tip:</comment> Install Python in a virtualenv and use --python-path:');
             $io->text('  python3 -m venv ~/myenv');
             $io->text('  source ~/myenv/bin/activate');
-            $io->text('  pip install torch numpy transformers');
+            $io->text('  pip install torch numpy transformers "gguf>=0.19.0" sentencepiece');
             $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
 
             return false;
@@ -328,7 +328,15 @@ final class InstallCommand extends Command
         $isGguf = str_ends_with($convertScript, 'convert-to-gguf.py');
 
         $requiredImports = $isGguf
-            ? 'import torch, numpy, transformers, gguf, sentencepiece'
+            ? <<<'PYTHON'
+import torch, numpy, transformers, sentencepiece
+from packaging.version import Version
+import gguf
+assert Version(gguf.__version__) >= Version("0.19.0"), f"gguf>=0.19.0 required, got {gguf.__version__}"
+assert Version(torch.__version__) >= Version("1.9.0"), f"torch>=1.9.0 required, got {torch.__version__}"
+assert Version(numpy.__version__) >= Version("1.20.0"), f"numpy>=1.20.0 required, got {numpy.__version__}"
+assert Version(transformers.__version__) >= Version("4.0.0"), f"transformers>=4.0.0 required, got {transformers.__version__}"
+PYTHON
             : 'import torch, numpy, transformers';
 
         $io->text('Checking Python dependencies...');
@@ -352,7 +360,7 @@ final class InstallCommand extends Command
                 $io->note('Create a virtualenv and use --python-path:');
                 $io->text('  python3 -m venv ~/myenv');
                 $io->text('  source ~/myenv/bin/activate');
-                $io->text('  pip install torch numpy transformers');
+                $io->text('  pip install torch numpy transformers "gguf>=0.19.0" sentencepiece');
                 $io->text('  ./vendor/bin/neuraphp install --python-path=~/myenv/bin/python3');
 
                 return false;
@@ -656,11 +664,11 @@ final class InstallCommand extends Command
 
     private function installPythonDeps(SymfonyStyle $io, string $pythonPath, string $workingDir, bool $ggufMode = false): bool
     {
-        $packages = ['torch', 'numpy', 'transformers'];
+        $packages = ['torch>=1.9.0', 'numpy>=1.20.0', 'transformers>=4.0.0', 'packaging'];
 
         if ($ggufMode) {
-            $packages[] = 'gguf';
-            $packages[] = 'sentencepiece';
+            $packages[] = 'gguf>=0.19.0';
+            $packages[] = 'sentencepiece>=0.1.91';
         }
 
         $io->text('Installing '.implode(', ', $packages).'...');
@@ -676,7 +684,7 @@ final class InstallCommand extends Command
             $io->text('pip not found alongside Python, using python -m pip...');
 
             $result = $this->runCommand(
-                array_merge([$pythonPath, '-m', 'pip', 'install'], $packages),
+                array_merge([$pythonPath, '-m', 'pip', 'install', '--upgrade'], $packages),
                 $workingDir,
             );
 
@@ -685,7 +693,7 @@ final class InstallCommand extends Command
             }
         } else {
             $result = $this->runCommand(
-                array_merge([$pipPath, 'install'], $packages),
+                array_merge([$pipPath, 'install', '--upgrade'], $packages),
                 $workingDir,
             );
 
@@ -696,7 +704,15 @@ final class InstallCommand extends Command
 
         $io->text('Verifying Python dependencies...');
         $verifyImports = $ggufMode
-            ? 'import torch, numpy, transformers, gguf, sentencepiece'
+            ? <<<'PYTHON'
+import torch, numpy, transformers, sentencepiece
+from packaging.version import Version
+import gguf
+assert Version(gguf.__version__) >= Version("0.19.0"), f"gguf>=0.19.0 required, got {gguf.__version__}"
+assert Version(torch.__version__) >= Version("1.9.0"), f"torch>=1.9.0 required, got {torch.__version__}"
+assert Version(numpy.__version__) >= Version("1.20.0"), f"numpy>=1.20.0 required, got {numpy.__version__}"
+assert Version(transformers.__version__) >= Version("4.0.0"), f"transformers>=4.0.0 required, got {transformers.__version__}"
+PYTHON
             : 'import torch, numpy, transformers';
 
         $verifyResult = $this->runCommand(
