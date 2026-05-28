@@ -28,19 +28,17 @@ final class InstallCommand extends Command
 {
     private string $projectRoot;
 
-    private Config $resolvedConfig;
-
     public function __construct()
     {
         parent::__construct();
         $this->projectRoot = Config::resolveProjectRoot();
-        $this->resolvedConfig = Config::resolve();
     }
 
     protected function configure(): void
     {
-        $defaultModel = $this->resolvedConfig->model()?->huggingFaceId() ?? Model::default()->value;
-        $defaultQuantization = $this->resolvedConfig->quantization()->value;
+        $config = Config::resolve();
+        $defaultModel = $config->model()?->huggingFaceId() ?? Model::default()->value;
+        $defaultQuantization = $config->quantization()->value;
 
         $this->addOption('model', null, InputOption::VALUE_OPTIONAL, 'Model to download (enum name or HuggingFace ID like BAAI/bge-large-en-v1.5)', $defaultModel);
         $this->addOption('quantization', null, InputOption::VALUE_OPTIONAL, 'Quantization level', $defaultQuantization);
