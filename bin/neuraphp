@@ -5,11 +5,18 @@ declare(strict_types=1);
 
 use B7s\Neuraphp\Console\Application;
 
-// When installed as a dependency, the autoloader is at the project root.
-// When developing the package itself, it's in the package's own vendor directory.
-$autoloader = file_exists(__DIR__ . '/../vendor/autoload.php')
-    ? __DIR__ . '/../vendor/autoload.php'
-    : __DIR__ . '/../../autoload.php';
+$autoloader = null;
+$candidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+    __DIR__ . '/../../autoload.php',
+];
+foreach ($candidates as $path) {
+    if (file_exists($path)) {
+        $autoloader = $path;
+        break;
+    }
+}
 
 require_once $autoloader;
 
