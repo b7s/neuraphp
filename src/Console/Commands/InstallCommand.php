@@ -121,7 +121,7 @@ final class InstallCommand extends Command
     {
         $io->section('Step 1: Installing embedding.cpp library');
 
-        $libDir = $this->projectRoot.'/bin/neuraphp/data/lib';
+        $libDir = $this->projectRoot.'/bin/neuraphp-data/lib';
         $soPath = $libDir.'/libbert_shared.so';
 
         if (! $force && file_exists($soPath)) {
@@ -208,7 +208,7 @@ final class InstallCommand extends Command
     {
         $io->section('Step 2: Downloading model');
 
-        $modelDir = $this->projectRoot.'/bin/neuraphp/data/models/'.$model->directoryName();
+        $modelDir = $this->projectRoot.'/bin/neuraphp-data/models/'.$model->directoryName();
         $modelFile = $modelDir.'/'.$model->filename($quantization);
 
         if (! $force && file_exists($modelFile)) {
@@ -578,7 +578,7 @@ final class InstallCommand extends Command
 
     private function ensureGitignore(): void
     {
-        $gitignoreDir = $this->projectRoot.'/bin/neuraphp/data';
+        $gitignoreDir = $this->projectRoot.'/bin/neuraphp-data';
 
         if (! is_dir($gitignoreDir) && ! mkdir($gitignoreDir, 0755, true) && ! is_dir($gitignoreDir)) {
             return;

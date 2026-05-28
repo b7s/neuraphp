@@ -27,8 +27,8 @@ Copy the compiled library to a location where Neuraphp can find it:
 
 ```bash
 # Option A: Project-local (recommended)
-mkdir -p /path/to/your/project/bin/neuraphp/data/lib
-cp libbert_shared.so /path/to/your/project/bin/neuraphp/data/lib/
+mkdir -p /path/to/your/project/bin/neuraphp-data/lib
+cp libbert_shared.so /path/to/your/project/bin/neuraphp-data/lib/
 
 # Option B: System-wide
 sudo cp libbert_shared.so /usr/local/lib/libbert_shared.so
@@ -38,7 +38,7 @@ sudo ldconfig
 Neuraphp searches for `libbert_shared.so` in this order:
 
 1. Explicit path via `libraryPath()` or config
-2. `<project_root>/bin/neuraphp/data/lib/libbert_shared.so`
+2. `<project_root>/bin/neuraphp-data/lib/libbert_shared.so`
 3. `/usr/local/lib/libbert_shared.so`
 4. `/usr/lib/libbert_shared.so`
 
@@ -63,8 +63,8 @@ python3 convert-to-ggml.py all-MiniLM-L6-v2/ 1  # f16
 Place the model files in your project:
 
 ```bash
-mkdir -p /path/to/your/project/bin/neuraphp/data/models/all-MiniLM-L6-v2/
-cp all-MiniLM-L6-v2/ggml-model-q4_0.bin /path/to/your/project/bin/neuraphp/data/models/all-MiniLM-L6-v2/
+mkdir -p /path/to/your/project/bin/neuraphp-data/models/all-MiniLM-L6-v2/
+cp all-MiniLM-L6-v2/ggml-model-q4_0.bin /path/to/your/project/bin/neuraphp-data/models/all-MiniLM-L6-v2/
 ```
 
 ### Step 4: Verify with the doctor command
