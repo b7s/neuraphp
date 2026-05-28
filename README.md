@@ -54,12 +54,18 @@ $similarity = Neuraphp::make()
 ## ⚠️ Prerequisites: embedding.cpp Library & Model
 
 > **Neuraphp requires `libbert_shared.so` (compiled from embedding.cpp) and a GGUF model file to function.**
-> 
-> To do so, we need:
-> - Rust 1.79+
-> - CMake 3.22+
-> 
-> to compile the library
+
+**Minimum versions required to compile the library:**
+
+| Tool | Min Version | Install |
+|------|-------------|---------|
+| Git | 2.0+ | [git-scm.com](https://git-scm.com) |
+| CMake | 3.12+ | [cmake.org](https://cmake.org/install/) |
+| GNU Make | 3.81+ | `sudo apt install build-essential` / `xcode-select --install` |
+| C++ compiler (g++/clang++) | GCC 10+ / Clang 10+ (C++20) | `sudo apt install g++` / `xcode-select --install` |
+| Rust (cargo) | 1.79+ | [rustup.rs](https://www.rust-lang.org/tools/install) |
+| Git LFS | 2.0+ | `sudo apt install git-lfs` / `brew install git-lfs` |
+| Python | 3.8+ | (model conversion only) |
 
 There are two ways to set these up:
 

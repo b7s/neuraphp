@@ -134,44 +134,9 @@ final class InstallCommand extends Command
             return true;
         }
 
-        // Check prerequisites
-        $io->text('Checking prerequisites...');
-
-        $git = $this->findExecutable('git');
-        $cmake = $this->findExecutable('cmake');
-        $make = $this->findExecutable('make');
-        $cargo = $this->findExecutable('cargo');
-
-        if ($git === null) {
-            $io->error("'git' is required but not found. Install git and try again.");
-
+        if (! $this->validateLibraryPrerequisites($io)) {
             return false;
         }
-
-        if ($cmake === null) {
-            $io->error("'cmake' is required but not found. Install cmake and try again.");
-
-            return false;
-        }
-
-        if ($make === null) {
-            $io->error("'make' is required but not found. Install make (or build-essential) and try again.");
-
-            return false;
-        }
-
-        if ($cargo === null) {
-            $io->error("'cargo' (Rust toolchain) is required but not found. Install Rust and try again.");
-            $io->note('Get Rust: https://www.rust-lang.org/tools/install');
-            $io->note('Or run: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh');
-
-            return false;
-        }
-
-        $io->text("  ✓ git: {$git}");
-        $io->text("  ✓ cmake: {$cmake}");
-        $io->text("  ✓ make: {$make}");
-        $io->text("  ✓ cargo: {$cargo}");
 
         // Clone embedding.cpp into temp directory
         $sourceDir = $tempDir.'/embedding-cpp';
@@ -264,27 +229,9 @@ final class InstallCommand extends Command
             return true;
         }
 
-        // Check prerequisites
-        $git = $this->findExecutable('git');
-        $gitLfs = $this->findExecutable('git-lfs');
-
-        if ($git === null) {
-            $io->error("'git' is required for model download. Install git and try again.");
-
+        if (! $this->validateModelPrerequisites($io)) {
             return false;
         }
-
-        if ($gitLfs === null) {
-            $io->error("'git-lfs' is required for model download. Install git-lfs and try again.");
-            $io->note('On Ubuntu/Debian: sudo apt install git-lfs');
-            $io->note('On macOS: brew install git-lfs');
-            $io->note('Then run: git lfs install');
-
-            return false;
-        }
-
-        $io->text(" ✓ git: {$git}");
-        $io->text(" ✓ git-lfs: {$gitLfs}");
 
         if (! $model->isKnown()) {
             $io->note("Custom model: {$model->huggingFaceId()}. Ensure this is a BERT-architecture model compatible with embedding.cpp.");
@@ -376,13 +323,9 @@ final class InstallCommand extends Command
 
         $io->text("  ✓ python: {$python}");
 
-        // Find the embedding.cpp source directory (in temp dir from library build)
-        $embeddingCppDir = $tempDir.'/embedding-cpp';
+        $embeddingCppDir = $this->ensureEmbeddingCppSource($io, $tempDir);
 
-        if (! is_dir($embeddingCppDir)) {
-            $io->text('embedding.cpp source not found. Cannot convert model.');
-            $io->note('Run the library installation step first.');
-
+        if ($embeddingCppDir === null) {
             return false;
         }
 
@@ -539,6 +482,224 @@ final class InstallCommand extends Command
         }
 
         return false;
+    }
+
+    private function validateLibraryPrerequisites(SymfonyStyle $io): bool
+    {
+        $io->text('Checking prerequisites...');
+
+        $checks = [
+            [
+                'name' => 'git',
+                'min' => '2.0',
+                'versionFlag' => '--version',
+                'versionPattern' => '/git version (\d+\.\d+\.\d+)/',
+                'installHint' => 'Install git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git',
+            ],
+            [
+                'name' => 'cmake',
+                'min' => '3.12',
+                'versionFlag' => '--version',
+                'versionPattern' => '/cmake version (\d+\.\d+\.\d+)/',
+                'installHint' => 'Install cmake: https://cmake.org/install/',
+            ],
+            [
+                'name' => 'make',
+                'min' => '3.81',
+                'versionFlag' => '--version',
+                'versionPattern' => '/GNU Make (\d+\.\d+)/',
+                'installHint' => 'Install make: sudo apt install build-essential (Ubuntu) or xcode-select --install (macOS)',
+            ],
+            [
+                'name' => 'cargo',
+                'min' => '1.79',
+                'versionFlag' => '--version',
+                'versionPattern' => '/cargo (\d+\.\d+\.\d+)/',
+                'installHint' => 'Install Rust: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh',
+                'label' => 'Rust (cargo)',
+            ],
+            [
+                'name' => 'g++',
+                'min' => '10',
+                'versionFlag' => '--version',
+                'versionPattern' => '/(\d+)\.\d+\.\d+/',
+                'installHint' => 'Install GCC 10+: sudo apt install g++-10 (Ubuntu) or brew install gcc (macOS)',
+                'label' => 'C++ compiler (g++/clang++)',
+                'alternatives' => ['clang++'],
+            ],
+        ];
+
+        $allPassed = true;
+
+        foreach ($checks as $check) {
+            $label = $check['label'] ?? $check['name'];
+
+            $path = $this->findExecutable($check['name']);
+
+            if ($path === null && isset($check['alternatives'])) {
+                foreach ($check['alternatives'] as $alt) {
+                    $path = $this->findExecutable($alt);
+                    if ($path !== null) {
+                        break;
+                    }
+                }
+            }
+
+            if ($path === null) {
+                $io->error("  ✗ {$label}: not found");
+                $io->text("    → {$check['installHint']}");
+                $allPassed = false;
+
+                continue;
+            }
+
+            $version = $this->getToolVersion($path, $check['versionFlag'], $check['versionPattern']);
+
+            if ($version === null) {
+                $io->text("  ⚠ {$label}: {$path} (version unknown, minimum {$check['min']})");
+
+                continue;
+            }
+
+            if ($this->compareVersion($version, $check['min']) < 0) {
+                $io->error("  ✗ {$label}: {$path} (v{$version}, minimum v{$check['min']})");
+                $io->text("    → {$check['installHint']}");
+                $allPassed = false;
+
+                continue;
+            }
+
+            $io->text("  ✓ {$label}: {$path} (v{$version})");
+        }
+
+        return $allPassed;
+    }
+
+    private function validateModelPrerequisites(SymfonyStyle $io): bool
+    {
+        $io->text('Checking prerequisites...');
+
+        $checks = [
+            [
+                'name' => 'git',
+                'min' => '2.0',
+                'versionFlag' => '--version',
+                'versionPattern' => '/git version (\d+\.\d+\.\d+)/',
+                'installHint' => 'Install git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git',
+            ],
+            [
+                'name' => 'git-lfs',
+                'min' => '2.0',
+                'versionFlag' => 'version',
+                'versionPattern' => '/git-lfs\/(\d+\.\d+\.\d+)/',
+                'installHint' => 'Install git-lfs: sudo apt install git-lfs (Ubuntu) or brew install git-lfs (macOS), then git lfs install',
+            ],
+        ];
+
+        $allPassed = true;
+
+        foreach ($checks as $check) {
+            $path = $this->findExecutable($check['name']);
+
+            if ($path === null) {
+                $io->error("  ✗ {$check['name']}: not found");
+                $io->text("    → {$check['installHint']}");
+                $allPassed = false;
+
+                continue;
+            }
+
+            $version = $this->getToolVersion($path, $check['versionFlag'], $check['versionPattern']);
+
+            if ($version === null) {
+                $io->text("  ⚠ {$check['name']}: {$path} (version unknown, minimum {$check['min']})");
+
+                continue;
+            }
+
+            if ($this->compareVersion($version, $check['min']) < 0) {
+                $io->error("  ✗ {$check['name']}: {$path} (v{$version}, minimum v{$check['min']})");
+                $io->text("    → {$check['installHint']}");
+                $allPassed = false;
+
+                continue;
+            }
+
+            $io->text("  ✓ {$check['name']}: {$path} (v{$version})");
+        }
+
+        return $allPassed;
+    }
+
+    private function getToolVersion(string $path, string $versionFlag, string $pattern): ?string
+    {
+        $output = shell_exec(escapeshellarg($path).' '.escapeshellarg($versionFlag).' 2>/dev/null');
+
+        if (! is_string($output) || trim($output) === '') {
+            return null;
+        }
+
+        if (preg_match($pattern, $output, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
+    }
+
+    private function compareVersion(string $actual, string $required): int
+    {
+        $actualParts = array_map('intval', explode('.', $actual));
+        $requiredParts = array_map('intval', explode('.', $required));
+
+        $maxParts = max(count($actualParts), count($requiredParts));
+
+        $actualParts = array_pad($actualParts, $maxParts, 0);
+        $requiredParts = array_pad($requiredParts, $maxParts, 0);
+
+        for ($i = 0; $i < $maxParts; $i++) {
+            if ($actualParts[$i] < $requiredParts[$i]) {
+                return -1;
+            }
+            if ($actualParts[$i] > $requiredParts[$i]) {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    private function ensureEmbeddingCppSource(SymfonyStyle $io, string $tempDir): ?string
+    {
+        $embeddingCppDir = $tempDir.'/embedding-cpp';
+
+        if (is_dir($embeddingCppDir)) {
+            return $embeddingCppDir;
+        }
+
+        $git = $this->findExecutable('git');
+
+        if ($git === null) {
+            $io->error("'git' is required to clone embedding.cpp for model conversion. Install git and try again.");
+
+            return null;
+        }
+
+        $io->text('Cloning embedding.cpp repository for model conversion...');
+
+        $cloneResult = $this->runCommand(
+            ['git', 'clone', '--depth', '1', '--recurse-submodules', 'https://github.com/b7s/embedding.cpp', $embeddingCppDir],
+            $tempDir,
+        );
+
+        if ($cloneResult !== 0) {
+            $io->error('Failed to clone embedding.cpp for model conversion. Check your internet connection.');
+
+            return null;
+        }
+
+        $io->text(' ✓ embedding.cpp cloned for conversion.');
+
+        return $embeddingCppDir;
     }
 
     /**
