@@ -60,10 +60,10 @@ $similarity = Neuraphp::make()
 | Tool | Min Version | Install |
 |------|-------------|---------|
 | Git | 2.0+ | [git-scm.com](https://git-scm.com) |
-| CMake | 3.12+ | [cmake.org](https://cmake.org/install/) |
+| CMake | 3.18+ | [cmake.org](https://cmake.org/install/) |
 | GNU Make | 3.81+ | `sudo apt install build-essential` / `xcode-select --install` |
 | C++ compiler (g++/clang++) | GCC 10+ / Clang 10+ (C++20) | `sudo apt install g++` / `xcode-select --install` |
-| Rust (cargo) | 1.79+ | [rustup.rs](https://www.rust-lang.org/tools/install) |
+| Rust (cargo) | 1.75+ | [rustup.rs](https://www.rust-lang.org/tools/install) |
 | Git LFS | 2.0+ | `sudo apt install git-lfs` / `brew install git-lfs` |
 | Python | 3.8+ | (model conversion only) |
 

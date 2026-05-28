@@ -35,9 +35,9 @@ final class PrerequisiteValidator
     {
         return [
             new PrerequisiteCheck('git', '2.0', '--version', '/git version (\d+\.\d+\.\d+)/', 'Install git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git'),
-            new PrerequisiteCheck('cmake', '3.12', '--version', '/cmake version (\d+\.\d+\.\d+)/', 'Install cmake: https://cmake.org/install/'),
+            new PrerequisiteCheck('cmake', '3.18', '--version', '/cmake version (\d+\.\d+\.\d+)/', 'Install cmake: https://cmake.org/install/'),
             new PrerequisiteCheck('make', '3.81', '--version', '/GNU Make (\d+\.\d+)/', 'Install make: sudo apt install build-essential (Ubuntu) or xcode-select --install (macOS)'),
-            new PrerequisiteCheck('cargo', '1.79', '--version', '/cargo (\d+\.\d+\.\d+)/', 'Install Rust: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh', 'Rust (cargo)'),
+            new PrerequisiteCheck('cargo', '1.75', '--version', '/cargo (\d+\.\d+\.\d+)/', 'Install Rust: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh', 'Rust (cargo)'),
             new PrerequisiteCheck('g++', '10', '--version', '/(\d+)\.\d+\.\d+/', 'Install GCC 10+: sudo apt install g++-10 (Ubuntu) or brew install gcc (macOS)', 'C++ compiler (g++/clang++)', ['clang++']),
         ];
     }
