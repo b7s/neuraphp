@@ -65,6 +65,8 @@ Run the installation command - it clones, compiles, and downloads everything for
 ./vendor/bin/neuraphp install
 ```
 
+> You need to run this command just once for each model you want to use. If you don't change the model, you don't need to re-run it.
+
 This will:
 1. **Check prerequisites** (git, cmake, make, C++ compiler, Rust, git-lfs)
 2. **Clone embedding.cpp** into a temp directory and compile `libbert_shared.so`
