@@ -128,7 +128,8 @@ echo $result->duration();   // 0.012 (seconds)
 
 // With explicit known model
 $result = Neuraphp::make()
-    ->model(ModelReference::fromEnum(Model::BgeSmallENV15))
+    ->model(Model::BgeSmallENV15)
+    // or: ->model(ModelReference::fromEnum(Model::BgeSmallENV15))
     ->quantization(Quantization::F16)
     ->threads(4)
     ->embed('Hello world');

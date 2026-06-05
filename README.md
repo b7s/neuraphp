@@ -42,18 +42,21 @@ echo $result->dimension();  // 384
 // Use a specific model
 $result = Neuraphp::make()
     ->model(Model::BgeSmallENV15)
-    ->embed('Hello world');
+    ->embed('Hello world'); // float[]
 
 // Compare two texts
 $similarity = Neuraphp::make()
-    ->cosineSimilarity('The cat sat on the mat', 'A feline rested on the rug');
+    ->cosineSimilarity(
+       'The cat sat on the mat',
+       'A feline rested on the rug'
+    ); // 0.87
 ```
 
-> For more examples, custom models, batch embedding, and the full API — see the [Advanced Guide](docs/advanced-guide.md#quick-start)
+> For more examples, custom models, batch embedding, and the full API, see the [Advanced Guide](docs/advanced-guide.md#quick-start)
 
 ## ⚠️ Prerequisites: embedding.cpp Library & Model
 
-> **Neuraphp requires `libbert_shared.so` (compiled from embedding.cpp) and a GGUF model file to function.**
+> **Neuraphp requires `libbert_shared.so` (compiled from [embedding.cpp](https://github.com/b7s/embedding.cpp)) and a GGUF model file to function.**
 
 **Minimum versions required to compile the library:**
 
